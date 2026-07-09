@@ -23,8 +23,8 @@
   align-items: center;
   padding: 0 16px;
   font-weight: 700;
-  background: #0ea5e9;
-  color: #fff;
+  background: #523724;
+  color: #f3ece4;
 }
 .app-content {
   flex: 1;

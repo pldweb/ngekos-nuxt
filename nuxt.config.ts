@@ -1,5 +1,3 @@
-import Aura from '@primeuix/themes/aura'
-
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -8,12 +6,7 @@ export default defineNuxtConfig({
   css: ['primeicons/primeicons.css', '~/assets/css/main.css'],
   modules: ['@primevue/nuxt-module', '@pinia/nuxt', '@vite-pwa/nuxt'],
   primevue: {
-    options: {
-      theme: {
-        preset: Aura,
-        options: { darkModeSelector: '.dark-mode' },
-      },
-    },
+    importTheme: { from: '@/themes/app-theme' },
   },
   runtimeConfig: {
     public: {
@@ -25,7 +18,7 @@ export default defineNuxtConfig({
     manifest: {
       name: 'NgekosKuy',
       short_name: 'NgekosKuy',
-      theme_color: '#0ea5e9',
+      theme_color: '#523724',
       display: 'standalone',
       start_url: '/',
     },

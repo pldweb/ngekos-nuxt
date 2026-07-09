@@ -42,7 +42,7 @@ const items = [
   text-decoration: none;
 }
 .nav-item.router-link-active {
-  color: #0ea5e9;
+  color: #523724;
 }
 .nav-item i {
   font-size: 18px;
