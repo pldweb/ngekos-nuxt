@@ -134,6 +134,22 @@ a { color: inherit; text-decoration: none; }
 }
 .nk-linkrow a { color: var(--brand); font-weight: 600; }
 
+/* ---------- Page header ---------- */
+.nk-pagehead { margin: 2px 2px 0; }
+.nk-pagehead__title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+.nk-pagehead__sub {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: no-preference) {
   .nk-rise { animation: nk-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }

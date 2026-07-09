@@ -15,10 +15,10 @@ onMounted(async () => {
 const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 
 const menu = [
-  { label: 'Tagihan', icon: 'pi pi-file', to: '/tagihan', ready: false },
-  { label: 'Bayar', icon: 'pi pi-wallet', to: '/bayar', ready: false },
-  { label: 'Pengaduan', icon: 'pi pi-comment', to: '/pengaduan', ready: false },
-  { label: 'Profil', icon: 'pi pi-user', to: '/profil', ready: true },
+  { label: 'Tagihan', icon: 'pi pi-file', to: '/tagihan' },
+  { label: 'Bayar', icon: 'pi pi-wallet', to: '/bayar' },
+  { label: 'Pengaduan', icon: 'pi pi-comment', to: '/pengaduan' },
+  { label: 'Profil', icon: 'pi pi-user', to: '/profil' },
 ]
 </script>
 
@@ -40,18 +40,15 @@ const menu = [
     <section class="nk-stack" style="gap: 10px">
       <h2 class="nk-sect">Menu</h2>
       <div class="tiles">
-        <component
-          :is="item.ready ? 'NuxtLink' : 'div'"
+        <NuxtLink
           v-for="item in menu"
           :key="item.label"
-          :to="item.ready ? item.to : undefined"
+          :to="item.to"
           class="tile"
-          :class="{ 'tile--soon': !item.ready }"
         >
           <span class="tile__ic"><i :class="item.icon" /></span>
           <span class="tile__label">{{ item.label }}</span>
-          <span v-if="!item.ready" class="tile__soon">Segera</span>
-        </component>
+        </NuxtLink>
       </div>
     </section>
 
@@ -108,7 +105,6 @@ const menu = [
   color: var(--ink);
   text-align: center;
 }
-.tile--soon { opacity: 0.85; }
 .tile__ic {
   width: 44px;
   height: 44px;
@@ -120,7 +116,6 @@ const menu = [
   font-size: 19px;
 }
 .tile__label { font-size: 12px; font-weight: 500; }
-.tile__soon { font-size: 10px; color: var(--ink-soft); }
 
 .status {
   display: flex;
