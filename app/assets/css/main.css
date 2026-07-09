@@ -1,0 +1,13 @@
+:root {
+  --app-max-width: 480px;
+}
+
+html, body, #__nuxt {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f1f5f9;
+}
