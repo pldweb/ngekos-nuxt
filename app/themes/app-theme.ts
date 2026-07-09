@@ -28,6 +28,9 @@ const buttonScheme = {
 const NgekosPreset = definePreset(Aura, {
   semantic: {
     primary: palette('#523724'),
+    formField: {
+      borderRadius: '12px',
+    },
   },
   components: {
     button: {

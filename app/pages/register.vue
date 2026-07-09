@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ layout: 'auth', middleware: 'guest' })
 const auth = useAuthStore()
 const form = reactive({ name: '', email: '', phone: '', password: '', password_confirmation: '' })
 const error = ref('')
@@ -12,7 +12,7 @@ async function submit() {
     await auth.register(form)
     await navigateTo(`/otp?email=${encodeURIComponent(form.email)}`)
   } catch (e: any) {
-    error.value = e?.data?.message || 'Registrasi gagal.'
+    error.value = e?.data?.message || 'Registrasi gagal. Periksa data Anda.'
   } finally {
     loading.value = false
   }
@@ -20,23 +20,60 @@ async function submit() {
 </script>
 
 <template>
-  <Card>
-    <template #title>Daftar</template>
-    <template #content>
-      <form @submit.prevent="submit" class="form">
-        <InputText v-model="form.name" placeholder="Nama" />
-        <InputText v-model="form.email" placeholder="Email" type="email" />
-        <InputText v-model="form.phone" placeholder="No. HP (opsional)" />
-        <Password v-model="form.password" placeholder="Password" :feedback="false" toggleMask />
-        <Password v-model="form.password_confirmation" placeholder="Ulangi Password" :feedback="false" toggleMask />
-        <Message v-if="error" severity="error">{{ error }}</Message>
-        <Button type="submit" label="Daftar" :loading="loading" />
-        <NuxtLink to="/login">Sudah punya akun? Masuk</NuxtLink>
-      </form>
-    </template>
-  </Card>
+  <div class="nk-card">
+    <h1 class="nk-card__title">Buat akun</h1>
+    <p class="nk-card__sub">Daftar sekali, kelola semua urusan kos dari sini.</p>
+
+    <form class="nk-form" @submit.prevent="submit">
+      <div>
+        <label class="nk-label" for="name">Nama lengkap</label>
+        <div class="nk-field">
+          <i class="pi pi-user nk-field__icon" />
+          <InputText id="name" v-model="form.name" placeholder="Nama kamu" autocomplete="name" />
+        </div>
+      </div>
+
+      <div>
+        <label class="nk-label" for="email">Email</label>
+        <div class="nk-field">
+          <i class="pi pi-envelope nk-field__icon" />
+          <InputText id="email" v-model="form.email" type="email" placeholder="nama@email.com" autocomplete="email" />
+        </div>
+      </div>
+
+      <div>
+        <label class="nk-label" for="phone">No. HP <span class="nk-opt">(opsional)</span></label>
+        <div class="nk-field">
+          <i class="pi pi-phone nk-field__icon" />
+          <InputText id="phone" v-model="form.phone" placeholder="08xxxxxxxxxx" inputmode="tel" autocomplete="tel" />
+        </div>
+      </div>
+
+      <div>
+        <label class="nk-label" for="password">Password</label>
+        <div class="nk-field">
+          <i class="pi pi-lock nk-field__icon" />
+          <Password input-id="password" v-model="form.password" placeholder="Minimal 8 karakter" :feedback="false" toggle-mask />
+        </div>
+      </div>
+
+      <div>
+        <label class="nk-label" for="password2">Ulangi password</label>
+        <div class="nk-field">
+          <i class="pi pi-lock nk-field__icon" />
+          <Password input-id="password2" v-model="form.password_confirmation" placeholder="Ketik ulang password" :feedback="false" toggle-mask />
+        </div>
+      </div>
+
+      <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+
+      <Button class="nk-cta" type="submit" label="Daftar" :loading="loading" />
+    </form>
+
+    <p class="nk-linkrow">Sudah punya akun? <NuxtLink to="/login">Masuk</NuxtLink></p>
+  </div>
 </template>
 
 <style scoped>
-.form { display: flex; flex-direction: column; gap: 12px; }
+.nk-opt { color: var(--ink-soft); font-weight: 400; }
 </style>
