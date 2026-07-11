@@ -4,5 +4,7 @@ export default defineNuxtPlugin(async () => {
   if (token) {
     auth.setToken(token)
     await auth.fetchMe()
+    // Muat branding (logo kos -> favicon) untuk user yang sudah login.
+    useBrandStore().load()
   }
 })

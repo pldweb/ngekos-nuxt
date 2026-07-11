@@ -46,6 +46,6 @@ async function submit() {
       <Button class="nk-cta" type="submit" label="Masuk" :loading="loading" />
     </form>
 
-    <p class="nk-linkrow">Belum punya akun? <NuxtLink to="/register">Daftar</NuxtLink></p>
+    <p class="nk-linkrow mt-10">Belum punya akun? <NuxtLink to="/register">Daftar</NuxtLink></p>
   </div>
 </template>

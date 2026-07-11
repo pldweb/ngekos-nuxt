@@ -18,12 +18,16 @@ const menu = [
   { label: 'Tagihan', icon: 'pi pi-file', to: '/tagihan' },
   { label: 'Bayar', icon: 'pi pi-wallet', to: '/bayar' },
   { label: 'Laporan', icon: 'pi pi-chart-bar', to: '/laporan' },
+  { label: 'Kos Harian', icon: 'pi pi-calendar', to: '/harian' },
+  { label: 'Pengaturan', icon: 'pi pi-cog', to: '/pengaturan' },
   { label: 'Pengaduan', icon: 'pi pi-comment', to: '/pengaduan' },
 ]
 </script>
 
 <template>
-  <div class="nk-stack">
+  <AdminDashboard v-if="auth.isAdmin" />
+
+  <div v-else class="nk-stack">
     <section class="hero nk-rise">
       <p class="hero__eyebrow">Beranda</p>
       <h1 class="hero__title">
@@ -92,7 +96,7 @@ const menu = [
   border-radius: 12px;
 }
 
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .tile {
   display: flex;
   flex-direction: column;

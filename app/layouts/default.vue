@@ -53,5 +53,6 @@
 .app__main {
   flex: 1;
   padding: 18px 16px calc(84px + env(safe-area-inset-bottom));
+  container: appview / inline-size;
 }
 </style>

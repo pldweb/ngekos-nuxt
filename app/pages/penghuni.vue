@@ -70,7 +70,7 @@ onMounted(load)
       description="Penghuni yang terdaftar akan tampil di sini."
     />
 
-    <section v-else class="nk-stack" style="gap: 10px">
+    <section v-else class="tenants">
       <article v-for="t in tenants" :key="t.id" class="tenant nk-rise">
         <span class="tenant__avatar">{{ initials(t.nama) }}</span>
         <div class="tenant__body">
@@ -109,4 +109,9 @@ onMounted(load)
 .tenant__body { flex: 1; min-width: 0; }
 .tenant__name { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
 .tenant__contact { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+
+.tenants { display: grid; gap: 10px; }
+@container appview (min-width: 680px) {
+  .tenants { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+}
 </style>

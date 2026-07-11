@@ -4,8 +4,9 @@ definePageMeta({ middleware: 'auth' })
 type Invoice = {
   id: number
   periode: string
-  status: 'belum_bayar' | 'menunggu_verifikasi' | 'lunas'
+  status: 'belum_bayar' | 'menunggu_verifikasi' | 'dibayar_sebagian' | 'lunas' | 'terlambat'
   total: number
+  sisa: number
   due_date: string | null
 }
 
@@ -14,11 +15,23 @@ const api = useApi()
 const invoices = ref<Invoice[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+const dialog = ref(false)
+const submitting = ref(false)
+const submitError = ref<string | null>(null)
+const submitMessage = ref<string | null>(null)
+const selectedInvoice = ref<Invoice | null>(null)
+const installmentForm = reactive({
+  jumlah_termin: 2,
+  tanggal_mulai: new Date().toISOString().slice(0, 10),
+  catatan_kesepakatan: '',
+})
 
 const statusMeta: Record<Invoice['status'], { label: string; severity: string }> = {
   belum_bayar: { label: 'Belum dibayar', severity: 'danger' },
   menunggu_verifikasi: { label: 'Menunggu verifikasi', severity: 'warn' },
+  dibayar_sebagian: { label: 'Dibayar sebagian', severity: 'info' },
   lunas: { label: 'Lunas', severity: 'success' },
+  terlambat: { label: 'Terlambat', severity: 'danger' },
 }
 
 const rupiah = (n: number) => 'Rp' + n.toLocaleString('id-ID')
@@ -33,8 +46,61 @@ const periodeLabel = (p: string) => {
 const outstanding = computed(() =>
   invoices.value
     .filter((i) => i.status !== 'lunas')
-    .reduce((sum, i) => sum + i.total, 0),
+    .reduce((sum, i) => sum + (i.sisa ?? i.total), 0),
 )
+const canRequestInstallment = (invoice: Invoice) =>
+  invoice.status !== 'lunas' && invoice.status !== 'menunggu_verifikasi' && (invoice.sisa ?? invoice.total) > 0
+
+function openInstallment(invoice: Invoice) {
+  selectedInvoice.value = invoice
+  installmentForm.jumlah_termin = 2
+  installmentForm.tanggal_mulai = new Date().toISOString().slice(0, 10)
+  installmentForm.catatan_kesepakatan = ''
+  submitError.value = null
+  submitMessage.value = null
+  dialog.value = true
+}
+
+function buildTerms(invoice: Invoice) {
+  const sisa = Math.round(invoice.sisa ?? invoice.total)
+  const jumlah = installmentForm.jumlah_termin
+  const base = Math.floor(sisa / jumlah)
+  const mulai = new Date(installmentForm.tanggal_mulai)
+
+  return Array.from({ length: jumlah }, (_, index) => {
+    const due = new Date(mulai)
+    due.setDate(mulai.getDate() + index * 7)
+    const nominal = index === jumlah - 1 ? sisa - base * (jumlah - 1) : base
+    return {
+      urutan: index + 1,
+      nominal_rencana: nominal,
+      tanggal_jatuh_tempo: due.toISOString().slice(0, 10),
+    }
+  })
+}
+
+async function submitInstallment() {
+  if (!selectedInvoice.value) return
+  submitting.value = true
+  submitError.value = null
+  submitMessage.value = null
+  try {
+    await api(`/invoices/${selectedInvoice.value.id}/installment-plans`, {
+      method: 'POST',
+      body: {
+        jumlah_termin: installmentForm.jumlah_termin,
+        catatan_kesepakatan: installmentForm.catatan_kesepakatan,
+        termin: buildTerms(selectedInvoice.value),
+      },
+    })
+    submitMessage.value = 'Pengajuan cicilan dikirim.'
+    await load()
+  } catch (e: any) {
+    submitError.value = e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal mengajukan cicilan.'
+  } finally {
+    submitting.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -90,14 +156,59 @@ onMounted(load)
         description="Tagihan sewa akan muncul otomatis di sini setiap awal bulan."
       />
 
-      <article v-for="inv in invoices" :key="inv.id" class="inv nk-rise">
-        <div class="inv__body">
-          <p class="inv__periode">{{ periodeLabel(inv.periode) }}</p>
-          <p class="inv__amount">{{ rupiah(inv.total) }}</p>
-        </div>
-        <Tag :value="statusMeta[inv.status].label" :severity="statusMeta[inv.status].severity" />
-      </article>
+      <div v-else class="invs">
+        <article v-for="inv in invoices" :key="inv.id" class="inv nk-rise">
+          <div class="inv__body">
+            <p class="inv__periode">{{ periodeLabel(inv.periode) }}</p>
+            <p class="inv__amount">{{ rupiah(inv.sisa ?? inv.total) }}</p>
+          </div>
+          <div class="inv__side">
+            <Tag :value="statusMeta[inv.status].label" :severity="statusMeta[inv.status].severity" />
+            <Button
+              v-if="canRequestInstallment(inv)"
+              icon="pi pi-list-check"
+              label="Cicilan"
+              size="small"
+              outlined
+              @click="openInstallment(inv)"
+            />
+          </div>
+        </article>
+      </div>
     </section>
+
+    <Dialog v-model:visible="dialog" modal header="Ajukan cicilan" :style="{ width: '92vw', maxWidth: '420px' }">
+      <div v-if="selectedInvoice" class="nk-form">
+        <div class="installment-summary">
+          <span>{{ periodeLabel(selectedInvoice.periode) }}</span>
+          <strong>{{ rupiah(selectedInvoice.sisa ?? selectedInvoice.total) }}</strong>
+        </div>
+        <div>
+          <label class="nk-label">Jumlah termin</label>
+          <InputNumber v-model="installmentForm.jumlah_termin" :min="1" :max="12" class="w-full" />
+        </div>
+        <div>
+          <label class="nk-label">Tanggal termin pertama</label>
+          <DateField v-model="installmentForm.tanggal_mulai" />
+        </div>
+        <div>
+          <label class="nk-label">Catatan</label>
+          <Textarea v-model="installmentForm.catatan_kesepakatan" rows="3" auto-resize class="w-full" />
+        </div>
+        <div class="terms">
+          <div v-for="term in buildTerms(selectedInvoice)" :key="term.urutan" class="terms__row">
+            <span>Termin {{ term.urutan }} · {{ term.tanggal_jatuh_tempo }}</span>
+            <strong>{{ rupiah(term.nominal_rencana) }}</strong>
+          </div>
+        </div>
+        <Message v-if="submitMessage" severity="success">{{ submitMessage }}</Message>
+        <Message v-if="submitError" severity="error">{{ submitError }}</Message>
+      </div>
+      <template #footer>
+        <Button label="Tutup" text @click="dialog = false" />
+        <Button label="Ajukan" icon="pi pi-send" :loading="submitting" @click="submitInstallment" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -127,6 +238,10 @@ onMounted(load)
   align-items: center;
   gap: 6px;
 }
+.invs { display: grid; gap: 10px; }
+@container appview (min-width: 680px) {
+  .invs { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+}
 .inv {
   display: flex;
   align-items: center;
@@ -140,4 +255,39 @@ onMounted(load)
 }
 .inv__periode { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
 .inv__amount { margin: 3px 0 0; font-size: 13px; color: var(--ink-soft); }
+.inv__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.installment-summary,
+.terms__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.installment-summary {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.installment-summary strong { color: var(--ink); }
+.terms {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.terms__row {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.terms__row + .terms__row { border-top: 1px solid var(--line); }
+.terms__row strong { color: var(--ink); white-space: nowrap; }
+.w-full { width: 100%; }
 </style>
