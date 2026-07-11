@@ -17,8 +17,8 @@ const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 const menu = [
   { label: 'Tagihan', icon: 'pi pi-file', to: '/tagihan' },
   { label: 'Bayar', icon: 'pi pi-wallet', to: '/bayar' },
+  { label: 'Laporan', icon: 'pi pi-chart-bar', to: '/laporan' },
   { label: 'Pengaduan', icon: 'pi pi-comment', to: '/pengaduan' },
-  { label: 'Profil', icon: 'pi pi-user', to: '/profil' },
 ]
 </script>
 
