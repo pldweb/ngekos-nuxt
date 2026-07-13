@@ -10,7 +10,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.login(form.email, form.password)
-    await navigateTo('/')
+    await navigateTo('/admin')
   } catch (e: any) {
     error.value = e?.data?.message || 'Login gagal. Coba lagi.'
   } finally {

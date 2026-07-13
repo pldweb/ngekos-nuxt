@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const items = [
-  { label: 'Beranda', icon: 'pi pi-home', to: '/' },
-  { label: 'Tagihan', icon: 'pi pi-file', to: '/tagihan' },
-  { label: 'Bayar', icon: 'pi pi-wallet', to: '/bayar' },
-  { label: 'Pengaduan', icon: 'pi pi-comment', to: '/pengaduan' },
-  { label: 'Profil', icon: 'pi pi-user', to: '/profil' },
+  { label: 'Beranda', icon: 'pi pi-home', to: '/admin' },
+  { label: 'Tagihan', icon: 'pi pi-file', to: '/admin/tagihan' },
+  { label: 'Bayar', icon: 'pi pi-wallet', to: '/admin/bayar' },
+  { label: 'Pengaduan', icon: 'pi pi-comment', to: '/admin/pengaduan' },
+  { label: 'Profil', icon: 'pi pi-user', to: '/admin/profil' },
 ]
 </script>
 

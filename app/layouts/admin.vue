@@ -16,16 +16,16 @@ function toggleCollapse() {
 }
 
 const nav = [
-  { label: 'Dashboard', icon: 'pi pi-th-large', to: '/', group: 'Utama' },
-  { label: 'Kamar', icon: 'pi pi-building', to: '/kamar', group: 'Kelola' },
-  { label: 'Penghuni', icon: 'pi pi-users', to: '/penghuni', group: 'Kelola' },
-  { label: 'Pengguna', icon: 'pi pi-id-card', to: '/pengguna', group: 'Kelola' },
-  { label: 'Tagihan', icon: 'pi pi-file', to: '/tagihan', group: 'Keuangan' },
-  { label: 'Laporan', icon: 'pi pi-chart-bar', to: '/laporan', group: 'Keuangan' },
-  { label: 'Kos Harian', icon: 'pi pi-calendar', to: '/harian', group: 'Keuangan' },
-  { label: 'Pengaduan', icon: 'pi pi-comment', to: '/pengaduan', group: 'Lainnya' },
-  { label: 'Peran & Akses', icon: 'pi pi-shield', to: '/peran', group: 'Lainnya', superAdmin: true },
-  { label: 'Pengaturan', icon: 'pi pi-cog', to: '/pengaturan', group: 'Lainnya' },
+  { label: 'Dashboard', icon: 'pi pi-th-large', to: '/admin', group: 'Utama' },
+  { label: 'Kamar', icon: 'pi pi-building', to: '/admin/kamar', group: 'Kelola' },
+  { label: 'Penghuni', icon: 'pi pi-users', to: '/admin/penghuni', group: 'Kelola' },
+  { label: 'Pengguna', icon: 'pi pi-id-card', to: '/admin/pengguna', group: 'Kelola' },
+  { label: 'Tagihan', icon: 'pi pi-file', to: '/admin/tagihan', group: 'Keuangan' },
+  { label: 'Laporan', icon: 'pi pi-chart-bar', to: '/admin/laporan', group: 'Keuangan' },
+  { label: 'Kos Harian', icon: 'pi pi-calendar', to: '/admin/harian', group: 'Keuangan' },
+  { label: 'Pengaduan', icon: 'pi pi-comment', to: '/admin/pengaduan', group: 'Lainnya' },
+  { label: 'Peran & Akses', icon: 'pi pi-shield', to: '/admin/peran', group: 'Lainnya', superAdmin: true },
+  { label: 'Pengaturan', icon: 'pi pi-cog', to: '/admin/pengaturan', group: 'Lainnya' },
 ]
 
 const visibleNav = computed(() => nav.filter((n) => !n.superAdmin || auth.isSuperAdmin))
@@ -103,6 +103,7 @@ watch(() => route.path, () => (drawerOpen.value = false))
         <div class="topbar__actions">
           <button class="topbar__icon" type="button" aria-label="Notifikasi">
             <i class="pi pi-bell" />
+            <span class="topbar__badge">3</span>
           </button>
           <ProfileMenu />
         </div>
@@ -313,6 +314,22 @@ watch(() => route.path, () => (drawerOpen.value = false))
   transition: border-color 0.15s;
 }
 .topbar__icon:hover { border-color: var(--sand); }
+.topbar__badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
 
 .content { flex: 1; padding: 26px; }
 .content__inner {
