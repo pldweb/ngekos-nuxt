@@ -6,22 +6,35 @@ definePageMeta({ layout: 'public' })
 const route = useRoute()
 const { detail } = usePublicKos()
 
-const kos = ref<PublicKos | null>(null)
-const loading = ref(true)
-const activeFoto = ref<string | null>(null)
+// Diambil saat SSR agar meta og:image ikut terender di HTML awal (dibaca crawler).
+const { data: kos, pending: loading } = await useAsyncData<PublicKos | null>(
+  `kos-${route.params.id}`,
+  async () => {
+    try {
+      return (await detail(route.params.id as string)).data
+    } catch {
+      return null
+    }
+  },
+)
 
-onMounted(async () => {
-  try {
-    kos.value = (await detail(route.params.id as string)).data
-    activeFoto.value = kos.value?.foto?.[0] ?? null
-  } catch {
-    kos.value = null
-  } finally {
-    loading.value = false
-  }
+const activeFoto = ref<string | null>(kos.value?.foto?.[0] ?? null)
+watch(kos, (v) => { activeFoto.value = v?.foto?.[0] ?? null })
+
+const ogImage = computed(() => kos.value?.og_image_url ?? kos.value?.logo_url ?? '/logo-ngekoskuy.png')
+
+useSeoMeta({
+  title: () => (kos.value ? `${kos.value.nama} — Ngekoskuy` : 'Detail Kos — Ngekoskuy'),
+  description: () => kos.value?.deskripsi ?? 'Detail kos di NgekosKuy.',
+  ogTitle: () => (kos.value ? kos.value.nama : 'Detail Kos — Ngekoskuy'),
+  ogDescription: () => kos.value?.deskripsi ?? 'Detail kos di NgekosKuy.',
+  ogImage: () => ogImage.value,
+  twitterCard: 'summary_large_image',
 })
 
-useHead(() => ({ title: kos.value ? `${kos.value.nama} — Ngekoskuy` : 'Detail Kos — Ngekoskuy' }))
+useHead(() => ({
+  link: kos.value?.favicon_url ? [{ rel: 'icon', href: kos.value.favicon_url }] : [],
+}))
 
 const statusLabel: Record<string, string> = {
   kosong: 'Tersedia',
@@ -146,9 +159,16 @@ const statusLabel: Record<string, string> = {
   color: #fff; font-size: 12px; font-weight: 600;
   padding: 6px 14px; border-radius: 999px;
 }
-.kd__thumbs { display: flex; gap: 10px; margin-top: 12px; }
+.kd__thumbs {
+  display: flex; gap: 10px; margin-top: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.kd__thumbs::-webkit-scrollbar { display: none; }
 .kd__thumb {
   width: 84px; height: 60px;
+  flex: 0 0 auto;
   border: 2px solid transparent;
   border-radius: 12px; overflow: hidden; padding: 0; cursor: pointer; background: none;
 }
@@ -180,7 +200,7 @@ const statusLabel: Record<string, string> = {
 .kd__section { margin-top: 44px; }
 .kd__section h2 { margin: 0 0 14px; font-size: 20px; font-weight: 700; color: var(--brand-strong); }
 .kd__section p { margin: 0; line-height: 1.7; color: var(--ink); }
-.kd__rooms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.kd__rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
 .kd__room { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
 .kd__room-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .kd__room-head strong { color: var(--brand-strong); }
@@ -194,7 +214,19 @@ const statusLabel: Record<string, string> = {
 .kd__room-fac i { color: var(--brand-soft); margin-right: 4px; }
 
 @media (max-width: 900px) {
-  .kd__top { grid-template-columns: 1fr; }
-  .kd__rooms { grid-template-columns: 1fr; }
+  .kd__top { grid-template-columns: 1fr; gap: 22px; }
+}
+@media (max-width: 560px) {
+  .kd { padding: 20px 16px 56px; }
+  .kd__cover { aspect-ratio: 4 / 3; border-radius: 16px; }
+  .kd__info h1 { font-size: 22px; }
+  .kd__loc { margin-bottom: 16px; }
+  .kd__price { padding: 14px 16px; margin-bottom: 14px; }
+  .kd__price strong { font-size: 22px; }
+  .kd__meta { gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .kd__section { margin-top: 32px; }
+  .kd__section h2 { font-size: 18px; }
+  .kd__rooms { grid-template-columns: 1fr; gap: 12px; }
+  .kd__room { padding: 14px; border-radius: 14px; }
 }
 </style>

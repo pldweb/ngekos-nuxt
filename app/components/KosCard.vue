@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { PublicKos } from '~/composables/usePublicKos'
 
-const props = defineProps<{ kos: PublicKos }>()
+const props = withDefaults(defineProps<{ kos: PublicKos; base?: string }>(), { base: '/kos' })
 const cover = computed(() => props.kos.foto?.[0] || null)
 </script>
 
 <template>
-  <NuxtLink :to="`/kos/${kos.id}`" class="kos-card">
+  <NuxtLink :to="`${base}/${kos.id}`" class="kos-card">
     <div class="kos-card__media">
       <img v-if="cover" :src="cover" :alt="kos.nama" loading="lazy" />
       <div v-else class="kos-card__ph"><i class="pi pi-home" /></div>

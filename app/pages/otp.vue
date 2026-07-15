@@ -15,7 +15,7 @@ async function verify() {
   loading.value = true
   try {
     await auth.verifyOtp(email.value, code.value)
-    await navigateTo('/admin')
+    await navigateTo(auth.isAdmin ? '/admin' : '/home')
   } catch (e: any) {
     error.value = e?.data?.message || 'Kode salah atau kedaluwarsa.'
   } finally {

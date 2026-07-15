@@ -28,8 +28,8 @@ const menuOpen = ref(false)
         </nav>
 
         <div class="site__actions">
-          <NuxtLink v-if="auth.isAuthenticated" to="/admin">
-            <Button label="Dashboard" rounded />
+          <NuxtLink v-if="auth.isAuthenticated" :to="auth.isAdmin ? '/admin' : '/home'">
+            <Button :label="auth.isAdmin ? 'Dashboard' : 'Beranda'" rounded />
           </NuxtLink>
           <NuxtLink v-else to="/login">
             <Button label="Masuk / Daftar" rounded />

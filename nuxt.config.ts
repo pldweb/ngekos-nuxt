@@ -3,7 +3,18 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
-  ssr: false,
+  // Hybrid rendering: halaman publik SSR (agar og:image terbaca crawler saat share
+  // link), area login/admin tetap SPA (butuh token di client). Lihat routeRules.
+  ssr: true,
+  routeRules: {
+    '/admin/**': { ssr: false },
+    '/home': { ssr: false },
+    '/home/**': { ssr: false },
+    '/login': { ssr: false },
+    '/register': { ssr: false },
+    '/otp': { ssr: false },
+    '/verifikasi/**': { ssr: false },
+  },
   devtools: { enabled: true },
   css: ['primeicons/primeicons.css', '~/assets/css/main.css'],
   vite: {
@@ -14,6 +25,15 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'id' },
       title: 'NgekosKuy',
+      meta: [
+        { name: 'description', content: 'NgekosKuy — cari & kelola kos dengan mudah.' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:site_name', content: 'NgekosKuy' },
+        { property: 'og:title', content: 'NgekosKuy' },
+        { property: 'og:description', content: 'Cari & kelola kos dengan mudah.' },
+        { property: 'og:image', content: '/logo-ngekoskuy.png' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+      ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
@@ -47,6 +67,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
+      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || '',
     },
   },
   pwa: {

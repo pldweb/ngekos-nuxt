@@ -1,7 +1,22 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-type Kos = { id: number; nama: string; logo_url?: string | null }
+type OfficeInfo = {
+  telepon?: string
+  email?: string
+  whatsapp?: string
+  jam_operasional?: string
+  alamat_maps?: string
+  sosial?: { instagram?: string; facebook?: string; tiktok?: string }
+}
+type Kos = {
+  id: number
+  nama: string
+  logo_url?: string | null
+  favicon_url?: string | null
+  og_image_url?: string | null
+  informasi_kantor?: OfficeInfo | null
+}
 type Setting = { id: number; kos_id: number | null; kunci: string; nilai: any }
 
 const api = useApi()
@@ -63,6 +78,7 @@ async function load() {
       const settings = await api<{ data: Setting[] }>(`/settings?kos_id=${selectedKos.value}`)
       applySettings(settings.data)
     }
+    applyOffice(kosList.value.find((k) => k.id === selectedKos.value))
   } catch (e: any) {
     error.value = e?.data?.message ?? 'Gagal memuat pengaturan.'
   } finally {
@@ -121,6 +137,91 @@ async function uploadLogo(file: File) {
   }
 }
 
+/* ---------- Favicon & gambar SEO (OG) kos ---------- */
+const faviconUploading = ref(false)
+const faviconError = ref<string | null>(null)
+const ogUploading = ref(false)
+const ogError = ref<string | null>(null)
+
+const currentFavicon = computed(
+  () => kosList.value.find((k) => k.id === selectedKos.value)?.favicon_url ?? null,
+)
+const currentOg = computed(
+  () => kosList.value.find((k) => k.id === selectedKos.value)?.og_image_url ?? null,
+)
+
+async function uploadAset(field: 'favicon' | 'og_image', endpoint: string, file: File) {
+  if (!selectedKos.value) return
+  const uploading = field === 'favicon' ? faviconUploading : ogUploading
+  const errRef = field === 'favicon' ? faviconError : ogError
+  uploading.value = true
+  errRef.value = null
+  try {
+    const fd = new FormData()
+    fd.append(field, file)
+    const res = await api<{ kos: Kos }>(`/kos/${selectedKos.value}/${endpoint}`, {
+      method: 'POST',
+      body: fd,
+    })
+    const kos = kosList.value.find((k) => k.id === selectedKos.value)
+    if (kos) {
+      kos.favicon_url = res.kos.favicon_url
+      kos.og_image_url = res.kos.og_image_url
+    }
+  } catch (e: any) {
+    errRef.value = e?.data?.message ?? 'Gagal mengunggah gambar.'
+  } finally {
+    uploading.value = false
+  }
+}
+
+/* ---------- Informasi kantor ---------- */
+const office = reactive<Required<OfficeInfo>>({
+  telepon: '',
+  email: '',
+  whatsapp: '',
+  jam_operasional: '',
+  alamat_maps: '',
+  sosial: { instagram: '', facebook: '', tiktok: '' },
+})
+const officeSaving = ref(false)
+const officeSaved = ref(false)
+const officeError = ref<string | null>(null)
+
+function applyOffice(kos?: Kos) {
+  const info = kos?.informasi_kantor ?? {}
+  office.telepon = info.telepon ?? ''
+  office.email = info.email ?? ''
+  office.whatsapp = info.whatsapp ?? ''
+  office.jam_operasional = info.jam_operasional ?? ''
+  office.alamat_maps = info.alamat_maps ?? ''
+  office.sosial = {
+    instagram: info.sosial?.instagram ?? '',
+    facebook: info.sosial?.facebook ?? '',
+    tiktok: info.sosial?.tiktok ?? '',
+  }
+}
+
+async function saveOffice() {
+  if (!selectedKos.value) return
+  officeSaving.value = true
+  officeError.value = null
+  officeSaved.value = false
+  try {
+    const res = await api<{ kos: Kos }>(`/kos/${selectedKos.value}`, {
+      method: 'PUT',
+      body: { informasi_kantor: office },
+    })
+    const kos = kosList.value.find((k) => k.id === selectedKos.value)
+    if (kos) kos.informasi_kantor = res.kos.informasi_kantor
+    officeSaved.value = true
+  } catch (e: any) {
+    officeError.value = e?.data?.message ?? 'Gagal menyimpan informasi kantor.'
+  } finally {
+    officeSaving.value = false
+  }
+}
+
 watch(selectedKos, async () => {
   if (!loading.value) await load()
 })
@@ -162,6 +263,83 @@ onMounted(load)
           @select="(file) => uploadLogo(file)"
         />
       </section>
+
+      <section class="logo-card nk-rise">
+        <div class="logo-card__info">
+          <h2 class="nk-sect" style="margin-top: 0">Favicon</h2>
+          <p class="logo-card__hint">
+            Ikon di tab browser halaman publik kos. Disarankan gambar persegi (mis. 64×64), maks 1 MB.
+          </p>
+          <Message v-if="faviconError" severity="error" class="logo-card__msg">{{ faviconError }}</Message>
+          <span v-if="faviconUploading" class="logo-card__status"><i class="pi pi-spin pi-spinner" /> Mengunggah…</span>
+        </div>
+        <ImagePicker
+          :model-value="currentFavicon"
+          label="Favicon"
+          @select="(file) => uploadAset('favicon', 'favicon', file)"
+        />
+      </section>
+
+      <section class="logo-card nk-rise">
+        <div class="logo-card__info">
+          <h2 class="nk-sect" style="margin-top: 0">Gambar SEO (share link)</h2>
+          <p class="logo-card__hint">
+            Gambar preview saat link kos dibagikan ke WhatsApp/medsos (og:image). Disarankan 1200×630, maks 4 MB.
+          </p>
+          <Message v-if="ogError" severity="error" class="logo-card__msg">{{ ogError }}</Message>
+          <span v-if="ogUploading" class="logo-card__status"><i class="pi pi-spin pi-spinner" /> Mengunggah…</span>
+        </div>
+        <ImagePicker
+          :model-value="currentOg"
+          label="Gambar SEO"
+          @select="(file) => uploadAset('og_image', 'og-image', file)"
+        />
+      </section>
+
+      <form class="settings nk-rise" @submit.prevent="saveOffice">
+        <section class="group">
+          <h2 class="nk-sect" style="margin-top: 0">Informasi kantor</h2>
+          <div class="grid grid-2">
+            <div class="nk-field">
+              <label class="nk-label">Telepon</label>
+              <InputText v-model="office.telepon" class="w-full" placeholder="021-000000" />
+            </div>
+            <div class="nk-field">
+              <label class="nk-label">WhatsApp</label>
+              <InputText v-model="office.whatsapp" class="w-full" placeholder="628xxxxxxxxxx" />
+            </div>
+            <div class="nk-field">
+              <label class="nk-label">Email</label>
+              <InputText v-model="office.email" class="w-full" placeholder="halo@kos.com" />
+            </div>
+            <div class="nk-field">
+              <label class="nk-label">Jam operasional</label>
+              <InputText v-model="office.jam_operasional" class="w-full" placeholder="Senin–Jumat 08.00–17.00" />
+            </div>
+            <div class="nk-field nk-field--full">
+              <label class="nk-label">Link Google Maps</label>
+              <InputText v-model="office.alamat_maps" class="w-full" placeholder="https://maps.google.com/…" />
+            </div>
+            <div class="nk-field">
+              <label class="nk-label">Instagram</label>
+              <InputText v-model="office.sosial.instagram" class="w-full" placeholder="@akun" />
+            </div>
+            <div class="nk-field">
+              <label class="nk-label">Facebook</label>
+              <InputText v-model="office.sosial.facebook" class="w-full" placeholder="facebook.com/…" />
+            </div>
+            <div class="nk-field">
+              <label class="nk-label">TikTok</label>
+              <InputText v-model="office.sosial.tiktok" class="w-full" placeholder="@akun" />
+            </div>
+          </div>
+          <Message v-if="officeError" severity="error" size="small" class="logo-card__msg">{{ officeError }}</Message>
+          <Message v-if="officeSaved" severity="success" size="small" class="logo-card__msg">Informasi kantor tersimpan.</Message>
+          <div style="margin-top: 12px">
+            <Button type="submit" label="Simpan informasi kantor" icon="pi pi-save" :loading="officeSaving" />
+          </div>
+        </section>
+      </form>
 
       <form class="settings nk-rise" @submit.prevent="save">
         <div class="nk-field">
@@ -284,6 +462,9 @@ onMounted(load)
   padding: 16px;
 }
 .grid { display: grid; gap: 12px; margin-top: 12px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.nk-field--full { grid-column: 1 / -1; }
+@media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
 .row {
   display: flex;
   align-items: center;

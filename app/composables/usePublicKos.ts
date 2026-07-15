@@ -7,6 +7,19 @@ export interface PublicRoom {
   fasilitas: string[]
 }
 
+export interface OfficeInfo {
+  telepon?: string
+  email?: string
+  whatsapp?: string
+  jam_operasional?: string
+  alamat_maps?: string
+  sosial?: {
+    instagram?: string
+    facebook?: string
+    tiktok?: string
+  }
+}
+
 export interface PublicKos {
   id: number
   nama: string
@@ -14,6 +27,9 @@ export interface PublicKos {
   deskripsi: string | null
   foto: string[]
   logo_url: string | null
+  favicon_url: string | null
+  og_image_url: string | null
+  informasi_kantor: OfficeInfo | null
   fasilitas: string[]
   populer: boolean
   harga_mulai: number | null

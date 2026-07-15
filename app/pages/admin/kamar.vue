@@ -60,6 +60,28 @@ const filtered = computed(() =>
   ),
 )
 
+/** Kamar dikelompokkan per kos, urut sesuai daftar kos. */
+const grouped = computed(() => {
+  const byKos = new Map<number, Room[]>()
+  for (const r of filtered.value) {
+    const arr = byKos.get(r.kos_id) ?? []
+    arr.push(r)
+    byKos.set(r.kos_id, arr)
+  }
+  return [...byKos.entries()]
+    .map(([kosId, items]) => ({
+      kosId,
+      nama: kosNama(kosId),
+      items: [...items].sort((a, b) => {
+        const na = parseInt(a.nomor, 10)
+        const nb = parseInt(b.nomor, 10)
+        if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+        return a.nomor.localeCompare(b.nomor, 'id')
+      }),
+    }))
+    .sort((a, b) => a.nama.localeCompare(b.nama, 'id'))
+})
+
 /** Nomor kamar berikutnya (numerik) untuk sebuah kos. */
 function nextNomor(kosId: number | null) {
   if (kosId == null) return '1'
@@ -391,42 +413,50 @@ onMounted(load)
       <Button label="Generate massal" icon="pi pi-bolt" size="small" @click="openGenerate" />
     </EmptyState>
 
-    <section v-else class="rooms">
-      <article
-        v-for="room in filtered"
-        :key="room.id"
-        class="room nk-rise"
-        :class="{ 'room--sel': selectMode && selected.has(room.id) }"
-        @click="selectMode ? toggleSelect(room.id) : null"
-      >
-        <div class="room__main">
-          <Checkbox
-            v-if="selectMode"
-            :model-value="selected.has(room.id)"
-            binary
-            @click.stop
-            @update:model-value="toggleSelect(room.id)"
-          />
-          <span class="room__no">{{ room.nomor }}</span>
-          <div>
-            <p class="room__kos">{{ kosNama(room.kos_id) }}</p>
-            <p class="room__price">{{ rupiah(room.harga_sewa) }} / bulan</p>
-          </div>
+    <template v-else>
+      <section v-for="group in grouped" :key="group.kosId" class="group">
+        <header class="group__head">
+          <h2 class="group__title">{{ group.nama }}</h2>
+          <span class="group__count">{{ group.items.length }} kamar</span>
+        </header>
+        <div class="rooms">
+          <article
+            v-for="room in group.items"
+            :key="room.id"
+            class="room nk-rise"
+            :class="{ 'room--sel': selectMode && selected.has(room.id) }"
+            @click="selectMode ? toggleSelect(room.id) : null"
+          >
+            <div class="room__main">
+              <Checkbox
+                v-if="selectMode"
+                :model-value="selected.has(room.id)"
+                binary
+                @click.stop
+                @update:model-value="toggleSelect(room.id)"
+              />
+              <span class="room__no">{{ room.nomor }}</span>
+              <div>
+                <p class="room__kos">Kamar {{ room.nomor }}</p>
+                <p class="room__price">{{ rupiah(room.harga_sewa) }} / bulan</p>
+              </div>
+            </div>
+            <div class="room__right">
+              <Tag :value="room.status" :severity="statusSeverity[room.status]" />
+              <Button
+                v-if="!selectMode"
+                icon="pi pi-copy"
+                severity="secondary"
+                text
+                rounded
+                aria-label="Duplikat"
+                @click.stop="openDuplicate(room)"
+              />
+            </div>
+          </article>
         </div>
-        <div class="room__right">
-          <Tag :value="room.status" :severity="statusSeverity[room.status]" />
-          <Button
-            v-if="!selectMode"
-            icon="pi pi-copy"
-            severity="secondary"
-            text
-            rounded
-            aria-label="Duplikat"
-            @click.stop="openDuplicate(room)"
-          />
-        </div>
-      </article>
-    </section>
+      </section>
+    </template>
 
     <!-- Bar aksi edit massal -->
     <div v-if="selectMode && selected.size" class="bulkbar">
@@ -594,6 +624,18 @@ onMounted(load)
 
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; }
 .rooms { display: grid; gap: 10px; }
+
+.group { display: grid; gap: 10px; }
+.group + .group { margin-top: 18px; }
+.group__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.group__title { margin: 0; font-size: 15px; font-weight: 700; color: var(--brand); }
+.group__count { font-size: 12.5px; color: var(--ink-soft); }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .nk-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
 

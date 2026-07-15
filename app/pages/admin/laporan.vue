@@ -59,6 +59,22 @@ const tipeLabel: Record<string, string> = {
   non_operasional: 'Non-operasional',
 }
 
+const exporting = ref(false)
+const exportMsg = ref<string | null>(null)
+
+async function exportPdf() {
+  exporting.value = true
+  exportMsg.value = null
+  try {
+    const res = await api<{ message: string }>('/reports/export', { method: 'POST' })
+    exportMsg.value = res.message ?? 'Laporan sedang diproses dan akan dikirim ke email Anda.'
+  } catch (e: any) {
+    exportMsg.value = e?.data?.message ?? 'Gagal memproses export laporan.'
+  } finally {
+    exporting.value = false
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = null
@@ -85,10 +101,21 @@ onMounted(load)
 
 <template>
   <div class="nk-stack">
-    <header class="nk-pagehead">
-      <h1 class="nk-pagehead__title">Laporan</h1>
-      <p class="nk-pagehead__sub">Ringkasan properti & keuangan {{ bulanIni }}.</p>
+    <header class="nk-pagehead nk-pagehead--row">
+      <div>
+        <h1 class="nk-pagehead__title">Laporan</h1>
+        <p class="nk-pagehead__sub">Ringkasan properti & keuangan {{ bulanIni }}.</p>
+      </div>
+      <Button
+        label="Export PDF"
+        icon="pi pi-file-pdf"
+        :loading="exporting"
+        severity="secondary"
+        @click="exportPdf"
+      />
     </header>
+
+    <Message v-if="exportMsg" severity="info" size="small" class="nk-rise">{{ exportMsg }}</Message>
 
     <p v-if="loading" class="nk-muted">Memuat laporan…</p>
 
@@ -176,6 +203,7 @@ onMounted(load)
 </template>
 
 <style scoped>
+.nk-pagehead--row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .reportgrid { display: grid; gap: 16px; }
 

@@ -21,5 +21,19 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   const auth = useAuthStore()
-  setPageLayout(auth.isAdmin ? 'admin' : 'default')
+
+  // Penghuni: area mereka di /home (bukan /admin). Cegah akses halaman admin.
+  if (!auth.isAdmin) {
+    if (to.path === '/admin' || to.path.startsWith('/admin/')) {
+      return navigateTo('/home')
+    }
+    setPageLayout('penghuni')
+    return
+  }
+
+  // Admin/pengelola: area /admin. Bila nyasar ke /home, arahkan ke dashboard.
+  if (to.path === '/home' || to.path.startsWith('/home/')) {
+    return navigateTo('/admin')
+  }
+  setPageLayout('admin')
 })
