@@ -190,14 +190,17 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   display: flex;
   align-items: center;
   gap: 20px;
+  position: relative;
 }
-.site__brand { display: flex; align-items: center; }
+.site__brand { display: flex; align-items: center; position: relative; z-index: 1; }
 .site__brand :deep(.site-logo) { transition: filter 0.2s ease; }
 .site__nav {
   display: flex;
   align-items: center;
   gap: 26px;
-  margin: 0 auto;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .site__link {
   color: #ecdfce;
@@ -207,7 +210,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 }
 .site__link:hover,
 .site__link.router-link-active { color: #fff; }
-.site__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.site__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; position: relative; z-index: 1; }
 .site__auth { display: inline-flex; }
 .site__burger {
   display: none;
