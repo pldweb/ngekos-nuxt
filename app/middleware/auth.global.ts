@@ -2,7 +2,7 @@
 // - Halaman auth (login/register/otp) & verifikasi QR: dilewati, pakai layout sendiri.
 // - Website publik (landing/cari-kos/detail kos): layout 'public', bisa diakses tanpa login.
 // - Sisanya (aplikasi manajemen): tanpa token -> /login; pilih layout sesuai peran.
-const AUTH_ROUTES = ['/login', '/register', '/otp']
+const AUTH_ROUTES = ['/login', '/register', '/otp', '/lupa-password']
 const WEB_PUBLIC_ROUTES = ['/', '/cari-kos']
 
 export default defineNuxtRouteMiddleware((to) => {

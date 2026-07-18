@@ -2,9 +2,11 @@
 definePageMeta({ layout: 'auth', middleware: 'guest' })
 const auth = useAuthStore()
 const config = useRuntimeConfig()
+const route = useRoute()
 const form = reactive({ email: '', password: '' })
 const error = ref('')
 const loading = ref(false)
+const resetOk = ref(route.query.reset === '1')
 
 async function submit() {
   error.value = ''
@@ -75,6 +77,10 @@ onMounted(async () => {
     <h1 class="nk-card__title">Masuk</h1>
     <p class="nk-card__sub">Selamat datang kembali. Yuk lanjut urus kosmu.</p>
 
+    <Message v-if="resetOk" severity="success" :closable="false" class="mb-10">
+      Password berhasil diperbarui. Silakan masuk dengan password baru.
+    </Message>
+
     <form class="nk-form" @submit.prevent="submit">
       <div>
         <label class="nk-label" for="email">Email</label>
@@ -85,7 +91,10 @@ onMounted(async () => {
       </div>
 
       <div>
-        <label class="nk-label" for="password">Password</label>
+        <div class="nk-label-row">
+          <label class="nk-label" for="password">Password</label>
+          <NuxtLink to="/lupa-password" class="nk-forgot">Lupa password?</NuxtLink>
+        </div>
         <div class="nk-field">
           <i class="pi pi-lock nk-field__icon" />
           <Password input-id="password" v-model="form.password" placeholder="Masukkan password" :feedback="false" toggle-mask />
@@ -138,4 +147,8 @@ onMounted(async () => {
 .g-btn { min-height: 40px; display: flex; justify-content: center; }
 .g-fallback { width: 100%; }
 .g-note { color: var(--ink-soft); font-size: 12px; }
+.nk-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.nk-forgot { font-size: 12.5px; font-weight: 600; color: var(--brand); }
+.nk-forgot:hover { text-decoration: underline; }
+.mb-10 { margin-bottom: 10px; }
 </style>

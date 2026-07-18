@@ -25,7 +25,7 @@ module.exports = {
         NITRO_HOST: '0.0.0.0',
         NITRO_PORT: 3000,
         // WAJIB diganti ke endpoint API produksi:
-        NUXT_PUBLIC_API_BASE: 'https://api.ngekoskuy.example/api/v1',
+        NUXT_PUBLIC_API_BASE: 'https://admin.ngekoskuy.id/api/v1',
       },
     },
   ],

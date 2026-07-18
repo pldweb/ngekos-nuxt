@@ -104,11 +104,12 @@ async function bulkUpsert(kosId: number, items: UpsertItem[]) {
   })
 }
 
-/* ---------- Tambah / Duplikat satu kamar ---------- */
+/* ---------- Tambah / Ubah / Duplikat satu kamar ---------- */
 const dialog = ref(false)
 const dialogTitle = ref('Tambah kamar')
 const saving = ref(false)
 const formError = ref<string | null>(null)
+const editingId = ref<number | null>(null)
 const form = reactive({
   kos_id: null as number | null,
   nomor: '',
@@ -128,7 +129,23 @@ function openCreate() {
     fasilitas: [],
   })
   form.nomor = nextNomor(form.kos_id)
+  editingId.value = null
   dialogTitle.value = 'Tambah kamar'
+  formError.value = null
+  dialog.value = true
+}
+
+function openEdit(room: Room) {
+  Object.assign(form, {
+    kos_id: room.kos_id,
+    nomor: room.nomor,
+    harga_sewa: room.harga_sewa,
+    tarif_harian: room.tarif_harian,
+    status: room.status,
+    fasilitas: [...(room.fasilitas ?? [])],
+  })
+  editingId.value = room.id
+  dialogTitle.value = `Ubah kamar ${room.nomor}`
   formError.value = null
   dialog.value = true
 }
@@ -142,6 +159,7 @@ function openDuplicate(room: Room) {
     status: 'kosong',
     fasilitas: [...(room.fasilitas ?? [])],
   })
+  editingId.value = null
   dialogTitle.value = `Duplikat kamar ${room.nomor}`
   formError.value = null
   dialog.value = true
@@ -151,25 +169,53 @@ async function submitRoom() {
   saving.value = true
   formError.value = null
   try {
-    await api('/rooms', {
-      method: 'POST',
-      body: {
-        kos_id: form.kos_id,
-        nomor: form.nomor,
-        harga_sewa: form.harga_sewa,
-        tarif_harian: form.tarif_harian,
-        status: form.status,
-        fasilitas: form.fasilitas,
-      },
-    })
+    const body = {
+      kos_id: form.kos_id,
+      nomor: form.nomor,
+      harga_sewa: form.harga_sewa,
+      tarif_harian: form.tarif_harian,
+      status: form.status,
+      fasilitas: form.fasilitas,
+    }
+    if (editingId.value) {
+      await api(`/rooms/${editingId.value}`, { method: 'PUT', body })
+    } else {
+      await api('/rooms', { method: 'POST', body })
+    }
     dialog.value = false
-    flash('Kamar tersimpan.')
+    flash(editingId.value ? 'Kamar diperbarui.' : 'Kamar tersimpan.')
     await load()
   } catch (e: any) {
     formError.value =
       e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal menyimpan kamar.'
   } finally {
     saving.value = false
+  }
+}
+
+/* ---------- Hapus kamar ---------- */
+const deleteTarget = ref<Room | null>(null)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+function confirmDelete(room: Room) {
+  deleteTarget.value = room
+  deleteError.value = null
+}
+
+async function doDelete() {
+  if (!deleteTarget.value) return
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await api(`/rooms/${deleteTarget.value.id}`, { method: 'DELETE' })
+    flash(`Kamar ${deleteTarget.value.nomor} dihapus.`)
+    deleteTarget.value = null
+    await load()
+  } catch (e: any) {
+    deleteError.value = e?.data?.message ?? 'Gagal menghapus kamar.'
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -443,15 +489,32 @@ onMounted(load)
             </div>
             <div class="room__right">
               <Tag :value="room.status" :severity="statusSeverity[room.status]" />
-              <Button
-                v-if="!selectMode"
-                icon="pi pi-copy"
-                severity="secondary"
-                text
-                rounded
-                aria-label="Duplikat"
-                @click.stop="openDuplicate(room)"
-              />
+              <template v-if="!selectMode">
+                <Button
+                  icon="pi pi-pencil"
+                  severity="secondary"
+                  text
+                  rounded
+                  aria-label="Ubah"
+                  @click.stop="openEdit(room)"
+                />
+                <Button
+                  icon="pi pi-copy"
+                  severity="secondary"
+                  text
+                  rounded
+                  aria-label="Duplikat"
+                  @click.stop="openDuplicate(room)"
+                />
+                <Button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  aria-label="Hapus"
+                  @click.stop="confirmDelete(room)"
+                />
+              </template>
             </div>
           </article>
         </div>
@@ -575,6 +638,26 @@ onMounted(load)
       <template #footer>
         <Button label="Batal" text @click="bulkDialog = false" />
         <Button label="Terapkan" icon="pi pi-check" :loading="bulkSaving" @click="submitBulkEdit" />
+      </template>
+    </Dialog>
+
+    <!-- Dialog Hapus kamar -->
+    <Dialog
+      :visible="deleteTarget !== null"
+      modal
+      header="Hapus kamar"
+      :style="{ width: '92vw', maxWidth: '400px' }"
+      @update:visible="(v) => { if (!v) deleteTarget = null }"
+    >
+      <div class="nk-form">
+        <p>
+          Yakin ingin menghapus <strong>Kamar {{ deleteTarget?.nomor }}</strong>? Tindakan ini tidak bisa dibatalkan.
+        </p>
+        <Message v-if="deleteError" severity="error" :closable="false">{{ deleteError }}</Message>
+      </div>
+      <template #footer>
+        <Button label="Batal" text @click="deleteTarget = null" />
+        <Button label="Hapus" icon="pi pi-trash" severity="danger" :loading="deleting" @click="doDelete" />
       </template>
     </Dialog>
   </div>

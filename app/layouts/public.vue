@@ -4,18 +4,38 @@ const auth = useAuthStore()
 const nav = [
   { label: 'Beranda', to: '/#beranda' },
   { label: 'Cari Kos', to: '/cari-kos' },
-  { label: 'Fasilitas', to: '/#fasilitas' },
-  { label: 'Cara Kerja', to: '/#cara-kerja' },
+  { label: 'Galeri', to: '/#galeri' },
   { label: 'Testimoni', to: '/#testimoni' },
   { label: 'Tentang Kami', to: '/#tentang' },
 ]
 
 const menuOpen = ref(false)
+
+// Header transparan di atas hero halaman depan, berlatar putih saat di-scroll.
+const route = useRoute()
+const isLanding = computed(() => route.path === '/')
+const scrolled = ref(false)
+
+function onScroll() {
+  scrolled.value = window.scrollY > 24
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+})
+onUnmounted(() => window.removeEventListener('scroll', onScroll))
 </script>
 
 <template>
   <div class="site">
-    <header class="site__bar">
+    <header
+      class="site__bar"
+      :class="{
+        'site__bar--float': isLanding,
+        'site__bar--filled': isLanding && (scrolled || menuOpen),
+      }"
+    >
       <div class="site__inner">
         <NuxtLink to="/" class="site__brand" @click="menuOpen = false">
           <SiteLogo :height="40" />
@@ -32,7 +52,7 @@ const menuOpen = ref(false)
             <Button :label="auth.isAdmin ? 'Dashboard' : 'Beranda'" rounded />
           </NuxtLink>
           <NuxtLink v-else to="/login">
-            <Button label="Masuk / Daftar" rounded />
+            <Button label="Login / Daftar" icon="pi pi-user" rounded />
           </NuxtLink>
           <button
             class="site__burger"
@@ -76,8 +96,8 @@ const menuOpen = ref(false)
           <h4>Navigasi</h4>
           <NuxtLink to="/#beranda">Beranda</NuxtLink>
           <NuxtLink to="/cari-kos">Cari Kos</NuxtLink>
-          <NuxtLink to="/#fasilitas">Fasilitas</NuxtLink>
-          <NuxtLink to="/#cara-kerja">Cara Kerja</NuxtLink>
+          <NuxtLink to="/#galeri">Galeri</NuxtLink>
+          <NuxtLink to="/#testimoni">Testimoni</NuxtLink>
           <NuxtLink to="/#tentang">Tentang Kami</NuxtLink>
         </div>
 
@@ -118,6 +138,33 @@ const menuOpen = ref(false)
   z-index: 50;
   background: var(--brand-strong);
   color: #f4ece1;
+  transition: background 0.25s ease, box-shadow 0.25s ease, color 0.25s ease;
+}
+
+/* Halaman depan: header mengambang & transparan di atas hero (teks gelap). */
+.site__bar--float {
+  position: fixed;
+  left: 0;
+  right: 0;
+  background: transparent;
+  color: var(--brand-strong);
+}
+.site__bar--float .site__link { color: var(--brand-soft); }
+.site__bar--float .site__link:hover,
+.site__bar--float .site__link.router-link-active { color: var(--brand-strong); }
+.site__bar--float .site__burger {
+  background: rgba(70, 48, 31, 0.1);
+  color: var(--brand-strong);
+}
+.site__bar--float .site__mobile { border-top-color: rgba(70, 48, 31, 0.14); }
+.site__bar--float .site__mlink { color: var(--brand-soft); }
+
+/* Saat di-scroll (atau menu mobile terbuka): latar putih + bayangan halus. */
+.site__bar--filled {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(180%) blur(10px);
+  box-shadow: 0 6px 26px -18px rgba(70, 48, 31, 0.65);
+  border-bottom: 1px solid var(--line);
 }
 .site__inner {
   max-width: 1200px;

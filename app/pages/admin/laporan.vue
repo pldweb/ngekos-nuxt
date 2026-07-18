@@ -66,10 +66,19 @@ async function exportPdf() {
   exporting.value = true
   exportMsg.value = null
   try {
-    const res = await api<{ message: string }>('/reports/export', { method: 'POST' })
-    exportMsg.value = res.message ?? 'Laporan sedang diproses dan akan dikirim ke email Anda.'
+    const blob = await api<Blob>('/reports/export', { method: 'POST', responseType: 'blob' })
+    const period = new Date().toISOString().slice(0, 7)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `laporan-keuangan-${period}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    exportMsg.value = 'Laporan berhasil diunduh.'
   } catch (e: any) {
-    exportMsg.value = e?.data?.message ?? 'Gagal memproses export laporan.'
+    exportMsg.value = e?.data?.message ?? 'Gagal mengunduh laporan.'
   } finally {
     exporting.value = false
   }

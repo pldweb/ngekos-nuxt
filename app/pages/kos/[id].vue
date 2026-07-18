@@ -21,6 +21,23 @@ const { data: kos, pending: loading } = await useAsyncData<PublicKos | null>(
 const activeFoto = ref<string | null>(kos.value?.foto?.[0] ?? null)
 watch(kos, (v) => { activeFoto.value = v?.foto?.[0] ?? null })
 
+// Konfigurasi tombol "Konsultasi Kos" (WhatsApp) dari pengaturan sewa (global).
+const { data: konsul } = await useAsyncData('konsultasi-wa', async () => {
+  try {
+    return (await useApi()<{ data: { nomor: string | null; template: string } }>('/public/konsultasi')).data
+  } catch {
+    return { nomor: null, template: '' }
+  }
+})
+
+const waLink = computed(() => {
+  const nomor = konsul.value?.nomor
+  if (!nomor || !kos.value) return null
+  const digits = nomor.replace(/\D/g, '').replace(/^0/, '62')
+  const teks = (konsul.value?.template ?? '').replaceAll('{kos}', kos.value.nama)
+  return `https://wa.me/${digits}?text=${encodeURIComponent(teks)}`
+})
+
 const ogImage = computed(() => kos.value?.og_image_url ?? kos.value?.logo_url ?? '/logo-ngekoskuy.png')
 
 useSeoMeta({
@@ -99,9 +116,20 @@ const statusLabel: Record<string, string> = {
             </span>
           </div>
 
-          <NuxtLink to="/login" class="kd__cta">
-            <Button label="Ajukan Sewa" icon="pi pi-arrow-right" iconPos="right" rounded />
-          </NuxtLink>
+          <div class="kd__actions">
+            <NuxtLink to="/login" class="kd__cta">
+              <Button label="Ajukan Sewa" icon="pi pi-arrow-right" iconPos="right" rounded />
+            </NuxtLink>
+            <a
+              v-if="waLink"
+              :href="waLink"
+              target="_blank"
+              rel="noopener"
+              class="kd__cta"
+            >
+              <Button label="Konsultasi Kos" icon="pi pi-whatsapp" severity="success" rounded outlined />
+            </a>
+          </div>
         </aside>
       </section>
 
@@ -195,6 +223,8 @@ const statusLabel: Record<string, string> = {
   background: #fff; border: 1px solid var(--line);
   padding: 7px 12px; border-radius: 999px; font-size: 12.5px; color: var(--brand-soft);
 }
+.kd__actions { display: flex; flex-direction: column; gap: 10px; }
+.kd__cta { display: block; }
 .kd__cta :deep(.p-button) { width: 100%; }
 
 .kd__section { margin-top: 44px; }

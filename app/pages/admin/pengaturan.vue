@@ -222,11 +222,48 @@ async function saveOffice() {
   }
 }
 
+/* ---------- Pengaturan sewa kos / konsultasi WhatsApp (global) ---------- */
+const konsultasi = reactive({ nomor: '', template: '' })
+const konsultasiSaving = ref(false)
+const konsultasiSaved = ref(false)
+const konsultasiError = ref<string | null>(null)
+
+async function loadKonsultasi() {
+  try {
+    const res = await api<{ data: Setting[] }>('/settings')
+    const glob = res.data.filter((s) => s.kos_id === null)
+    konsultasi.nomor = glob.find((s) => s.kunci === 'konsultasi_wa_nomor')?.nilai ?? ''
+    konsultasi.template = glob.find((s) => s.kunci === 'konsultasi_wa_template')?.nilai ?? ''
+  } catch {
+    /* biarkan kosong */
+  }
+}
+
+async function saveKonsultasi() {
+  konsultasiSaving.value = true
+  konsultasiError.value = null
+  konsultasiSaved.value = false
+  try {
+    await Promise.all([
+      api('/settings', { method: 'POST', body: { kos_id: null, kunci: 'konsultasi_wa_nomor', nilai: konsultasi.nomor } }),
+      api('/settings', { method: 'POST', body: { kos_id: null, kunci: 'konsultasi_wa_template', nilai: konsultasi.template } }),
+    ])
+    konsultasiSaved.value = true
+  } catch (e: any) {
+    konsultasiError.value = e?.data?.message ?? 'Gagal menyimpan pengaturan sewa.'
+  } finally {
+    konsultasiSaving.value = false
+  }
+}
+
 watch(selectedKos, async () => {
   if (!loading.value) await load()
 })
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  await loadKonsultasi()
+})
 </script>
 
 <template>
@@ -337,6 +374,38 @@ onMounted(load)
           <Message v-if="officeSaved" severity="success" size="small" class="logo-card__msg">Informasi kantor tersimpan.</Message>
           <div style="margin-top: 12px">
             <Button type="submit" label="Simpan informasi kantor" icon="pi pi-save" :loading="officeSaving" />
+          </div>
+        </section>
+      </form>
+
+      <form class="settings nk-rise" @submit.prevent="saveKonsultasi">
+        <section class="group">
+          <h2 class="nk-sect" style="margin-top: 0">Pengaturan sewa kos (Konsultasi WhatsApp)</h2>
+          <p class="logo-card__hint">
+            Berlaku untuk semua kos. Tombol <strong>“Konsultasi Kos”</strong> di halaman publik akan membuka WhatsApp
+            ke nomor ini dengan teks otomatis. Gunakan tag <code>{kos}</code> pada teks — otomatis diganti nama kos
+            (mis. Alisha, Bestari, Ceria) yang sedang dilihat calon penghuni.
+          </p>
+          <div class="grid grid-2" style="margin-top: 14px">
+            <div class="nk-field">
+              <label class="nk-label">Nomor WhatsApp</label>
+              <InputText v-model="konsultasi.nomor" class="w-full" placeholder="628xxxxxxxxxx" />
+            </div>
+            <div class="nk-field nk-field--full">
+              <label class="nk-label">Teks otomatis</label>
+              <Textarea
+                v-model="konsultasi.template"
+                class="w-full"
+                rows="3"
+                auto-resize
+                placeholder="Halo Admin Ngekoskuy, saya ingin konsultasi tentang {kos}. Apakah kamarnya masih tersedia?"
+              />
+            </div>
+          </div>
+          <Message v-if="konsultasiError" severity="error" size="small" class="logo-card__msg">{{ konsultasiError }}</Message>
+          <Message v-if="konsultasiSaved" severity="success" size="small" class="logo-card__msg">Pengaturan sewa tersimpan.</Message>
+          <div style="margin-top: 12px">
+            <Button type="submit" label="Simpan pengaturan sewa" icon="pi pi-save" :loading="konsultasiSaving" />
           </div>
         </section>
       </form>

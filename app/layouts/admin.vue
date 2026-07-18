@@ -2,12 +2,65 @@
 const auth = useAuthStore()
 const brand = useBrandStore()
 const route = useRoute()
+const api = useApi()
 
 const collapsed = ref(false)
+
+/* ---------- Notifikasi ---------- */
+type Notif = {
+  id: string
+  tipe: string | null
+  judul: string | null
+  pesan: string | null
+  read_at: string | null
+  created_at: string | null
+}
+const notifs = ref<Notif[]>([])
+const unread = ref(0)
+const notifOpen = ref(false)
+let notifTimer: ReturnType<typeof setInterval> | null = null
+
+async function loadNotifs() {
+  try {
+    const res = await api<{ data: Notif[]; unread: number }>('/notifications')
+    notifs.value = res.data
+    unread.value = res.unread
+  } catch {
+    /* abaikan */
+  }
+}
+
+async function markRead(n: Notif) {
+  if (!n.read_at) {
+    try {
+      await api(`/notifications/${n.id}/read`, { method: 'POST' })
+      n.read_at = new Date().toISOString()
+      unread.value = Math.max(0, unread.value - 1)
+    } catch {
+      /* abaikan */
+    }
+  }
+}
+
+function waktuSingkat(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const detik = Math.floor((Date.now() - d.getTime()) / 1000)
+  if (detik < 60) return 'baru saja'
+  if (detik < 3600) return `${Math.floor(detik / 60)} mnt lalu`
+  if (detik < 86400) return `${Math.floor(detik / 3600)} jam lalu`
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+}
 
 onMounted(() => {
   brand.load()
   collapsed.value = localStorage.getItem('sidebarCollapsed') === '1'
+  loadNotifs()
+  notifTimer = setInterval(loadNotifs, 45000)
+})
+
+onUnmounted(() => {
+  if (notifTimer) clearInterval(notifTimer)
 })
 
 function toggleCollapse() {
@@ -47,13 +100,12 @@ watch(() => route.path, () => (drawerOpen.value = false))
   <div class="shell" :class="{ 'shell--collapsed': collapsed }">
     <!-- Sidebar -->
     <aside class="side" :class="{ 'side--open': drawerOpen }">
-      <div class="side__brand">
+      <NuxtLink to="/admin" class="side__brand">
         <span class="side__logo">
-          <img v-if="brand.logoUrl" :src="brand.logoUrl" alt="Logo" />
-          <BrandMark v-else size="sm" />
+          <img :src="brand.logoUrl || '/logo-ngekoskuy.png'" alt="Logo" />
         </span>
-        <span v-if="brand.logoUrl" class="side__kosname">{{ brand.kosName ?? 'NgekosKuy' }}</span>
-      </div>
+        <span v-if="brand.kosName" class="side__kosname">{{ brand.kosName }}</span>
+      </NuxtLink>
 
       <nav class="side__nav">
         <div v-for="g in groups" :key="g.name" class="side__group">
@@ -102,10 +154,45 @@ watch(() => route.path, () => (drawerOpen.value = false))
         </button>
         <h1 class="topbar__title">{{ pageTitle }}</h1>
         <div class="topbar__actions">
-          <button class="topbar__icon" type="button" aria-label="Notifikasi">
-            <i class="pi pi-bell" />
-            <span class="topbar__badge">3</span>
-          </button>
+          <div class="notif">
+            <button
+              class="topbar__icon"
+              type="button"
+              aria-label="Notifikasi"
+              @click="notifOpen = !notifOpen"
+            >
+              <i class="pi pi-bell" />
+              <span v-if="unread > 0" class="topbar__badge">{{ unread > 9 ? '9+' : unread }}</span>
+            </button>
+
+            <template v-if="notifOpen">
+              <div class="notif__backdrop" @click="notifOpen = false" />
+              <div class="notif__panel">
+                <header class="notif__head">
+                  <strong>Notifikasi</strong>
+                  <span v-if="unread > 0" class="notif__count">{{ unread }} baru</span>
+                </header>
+                <div class="notif__list">
+                  <p v-if="!notifs.length" class="notif__empty">Belum ada notifikasi.</p>
+                  <button
+                    v-for="n in notifs"
+                    :key="n.id"
+                    type="button"
+                    class="notif__item"
+                    :class="{ 'notif__item--unread': !n.read_at }"
+                    @click="markRead(n)"
+                  >
+                    <span class="notif__dot" :class="{ 'is-on': !n.read_at }" />
+                    <span class="notif__body">
+                      <span class="notif__title">{{ n.judul ?? 'Notifikasi' }}</span>
+                      <span class="notif__msg">{{ n.pesan }}</span>
+                      <span class="notif__time">{{ waktuSingkat(n.created_at) }}</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
           <ProfileMenu />
         </div>
       </header>
@@ -331,6 +418,62 @@ watch(() => route.path, () => (drawerOpen.value = false))
   font-weight: 700;
   line-height: 1;
 }
+
+/* ---------- Notifikasi dropdown ---------- */
+.notif { position: relative; display: flex; }
+.notif__backdrop { position: fixed; inset: 0; z-index: 40; }
+.notif__panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 41;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 22px 50px -24px rgba(40, 28, 18, 0.5);
+  overflow: hidden;
+}
+.notif__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+.notif__count { font-size: 12px; color: var(--brand); font-weight: 600; }
+.notif__list { max-height: 380px; overflow-y: auto; }
+.notif__empty { margin: 0; padding: 26px 16px; text-align: center; color: var(--ink-soft); font-size: 13px; }
+.notif__item {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.notif__item:last-child { border-bottom: none; }
+.notif__item:hover { background: var(--surface-2); }
+.notif__item--unread { background: color-mix(in srgb, var(--sand-soft), transparent 40%); }
+.notif__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+.notif__dot.is-on { background: var(--brand); }
+.notif__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif__title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.notif__msg { font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; }
+.notif__time { font-size: 11px; color: var(--brand-soft); margin-top: 2px; }
 
 .content { flex: 1; padding: 26px; }
 .content__inner {
