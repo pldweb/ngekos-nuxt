@@ -219,6 +219,42 @@ async function doDelete() {
   }
 }
 
+/* ---------- Tambah kos (brand/kategori) ---------- */
+const kosDialog = ref(false)
+const kosSaving = ref(false)
+const kosError = ref<string | null>(null)
+const kosForm = reactive({ nama: '', alamat: '' })
+
+function openCreateKos() {
+  kosForm.nama = ''
+  kosForm.alamat = ''
+  kosError.value = null
+  kosDialog.value = true
+}
+
+async function submitKos() {
+  if (!kosForm.nama.trim()) {
+    kosError.value = 'Nama kos wajib diisi.'
+    return
+  }
+  kosSaving.value = true
+  kosError.value = null
+  try {
+    const body: Record<string, string> = { nama: kosForm.nama.trim() }
+    if (kosForm.alamat.trim()) body.alamat = kosForm.alamat.trim()
+    const res = await api<{ kos: Kos }>('/kos', { method: 'POST', body })
+    kosDialog.value = false
+    flash(`Kos "${res.kos.nama}" ditambahkan.`)
+    await load()
+    filterKos.value = res.kos.id
+  } catch (e: any) {
+    kosError.value =
+      e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal menambah kos.'
+  } finally {
+    kosSaving.value = false
+  }
+}
+
 /* ---------- Generate massal ---------- */
 const genDialog = ref(false)
 const genSaving = ref(false)
@@ -405,6 +441,7 @@ onMounted(load)
         <p class="nk-pagehead__sub">Kelola kamar & harga tiap brand kos.</p>
       </div>
       <div class="head__actions">
+        <Button label="Tambah Kos" icon="pi pi-building" severity="secondary" outlined @click="openCreateKos" />
         <Button label="Generate" icon="pi pi-bolt" severity="secondary" outlined @click="openGenerate" />
         <Button label="Import" icon="pi pi-clipboard" severity="secondary" outlined @click="openImport" />
         <Button label="Tambah" icon="pi pi-plus" @click="openCreate" />
@@ -638,6 +675,26 @@ onMounted(load)
       <template #footer>
         <Button label="Batal" text @click="bulkDialog = false" />
         <Button label="Terapkan" icon="pi pi-check" :loading="bulkSaving" @click="submitBulkEdit" />
+      </template>
+    </Dialog>
+
+    <!-- Dialog Tambah kos -->
+    <Dialog v-model:visible="kosDialog" modal header="Tambah kos" :style="{ width: '92vw', maxWidth: '420px' }">
+      <div class="nk-form">
+        <p class="nk-muted">Tambahkan brand/kategori kos baru (mis. Kos Dahlia). Kamar diisi setelahnya.</p>
+        <div class="nk-field">
+          <label class="nk-label">Nama kos</label>
+          <InputText v-model="kosForm.nama" class="w-full" placeholder="mis. Kos Dahlia" autofocus />
+        </div>
+        <div class="nk-field">
+          <label class="nk-label">Alamat <span class="nk-muted">(opsional)</span></label>
+          <InputText v-model="kosForm.alamat" class="w-full" placeholder="Alamat kos" />
+        </div>
+        <Message v-if="kosError" severity="error" :closable="false">{{ kosError }}</Message>
+      </div>
+      <template #footer>
+        <Button label="Batal" text @click="kosDialog = false" />
+        <Button label="Simpan" icon="pi pi-check" :loading="kosSaving" @click="submitKos" />
       </template>
     </Dialog>
 
