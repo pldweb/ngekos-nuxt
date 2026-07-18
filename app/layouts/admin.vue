@@ -311,15 +311,18 @@ watch(() => route.path, () => (drawerOpen.value = false))
   font-size: 15px;
   transition: background 0.15s, color 0.15s;
 }
-.navlink:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
-.navlink:hover .navlink__ic { background: rgba(255, 255, 255, 0.12); }
-.navlink--active {
+.navlink--active,
+.navlink:hover:not(.navlink--active) {
   background: linear-gradient(90deg, var(--sand), #d8c3a6);
   color: var(--brand-strong);
   font-weight: 600;
   box-shadow: 0 8px 18px -10px rgba(201, 175, 148, 0.8);
 }
-.navlink--active .navlink__ic { background: rgba(70, 48, 31, 0.14); color: var(--brand-strong); }
+.navlink--active .navlink__ic,
+.navlink:hover:not(.navlink--active) .navlink__ic {
+  background: rgba(70, 48, 31, 0.14);
+  color: var(--brand-strong);
+}
 .navlink__label { flex: 1; }
 .navlink__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-strong); }
 

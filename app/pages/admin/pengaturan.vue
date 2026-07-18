@@ -27,6 +27,7 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const saved = ref(false)
+const saveError = ref<string | null>(null)
 
 const defaultSettings = {
   mode_jatuh_tempo: 'seragam',
@@ -77,6 +78,7 @@ async function load() {
     if (selectedKos.value) {
       const settings = await api<{ data: Setting[] }>(`/settings?kos_id=${selectedKos.value}`)
       applySettings(settings.data)
+      applyKonsultasi(settings.data)
     }
     applyOffice(kosList.value.find((k) => k.id === selectedKos.value))
   } catch (e: any) {
@@ -87,10 +89,13 @@ async function load() {
 }
 
 async function save() {
-  if (!selectedKos.value) return
-  saving.value = true
-  error.value = null
+  saveError.value = null
   saved.value = false
+  if (!selectedKos.value) {
+    saveError.value = 'Pilih kos dulu sebelum menyimpan.'
+    return
+  }
+  saving.value = true
   try {
     await Promise.all(Object.entries(form).map(([kunci, nilai]) =>
       api('/settings', {
@@ -100,14 +105,46 @@ async function save() {
     ))
     saved.value = true
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Gagal menyimpan pengaturan.'
+    saveError.value =
+      e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal menyimpan pengaturan.'
   } finally {
     saving.value = false
   }
 }
 
-/* ---------- Logo kos (dipakai sebagai favicon) ---------- */
+/* ---------- Logo situs GLOBAL (sidebar admin, landing, login, invoice) ---------- */
 const brand = useBrandStore()
+const siteLogo = ref<string | null>(null)
+const siteLogoUploading = ref(false)
+const siteLogoError = ref<string | null>(null)
+
+async function loadSiteLogo() {
+  try {
+    const res = await api<{ data: { logo_url: string | null } }>('/public/site')
+    siteLogo.value = res.data?.logo_url ?? null
+  } catch {
+    /* abaikan */
+  }
+}
+
+async function uploadSiteLogo(file: File) {
+  siteLogoUploading.value = true
+  siteLogoError.value = null
+  try {
+    const fd = new FormData()
+    fd.append('logo', file)
+    const res = await api<{ logo_url: string }>(`/site/logo`, { method: 'POST', body: fd })
+    siteLogo.value = res.logo_url
+    // segarkan logo + favicon sidebar admin
+    brand.setLogo(res.logo_url)
+  } catch (e: any) {
+    siteLogoError.value = e?.data?.message ?? 'Gagal mengunggah logo situs.'
+  } finally {
+    siteLogoUploading.value = false
+  }
+}
+
+/* ---------- Logo kos (per kos) ---------- */
 const logoUploading = ref(false)
 const logoError = ref<string | null>(null)
 
@@ -128,8 +165,6 @@ async function uploadLogo(file: File) {
     })
     const kos = kosList.value.find((k) => k.id === selectedKos.value)
     if (kos) kos.logo_url = res.kos.logo_url
-    // segarkan favicon & logo sidebar
-    await brand.load(true)
   } catch (e: any) {
     logoError.value = e?.data?.message ?? 'Gagal mengunggah logo.'
   } finally {
@@ -222,31 +257,29 @@ async function saveOffice() {
   }
 }
 
-/* ---------- Pengaturan sewa kos / konsultasi WhatsApp (global) ---------- */
+/* ---------- Pengaturan sewa kos / konsultasi WhatsApp (per kos) ---------- */
 const konsultasi = reactive({ nomor: '', template: '' })
 const konsultasiSaving = ref(false)
 const konsultasiSaved = ref(false)
 const konsultasiError = ref<string | null>(null)
 
-async function loadKonsultasi() {
-  try {
-    const res = await api<{ data: Setting[] }>('/settings')
-    const glob = res.data.filter((s) => s.kos_id === null)
-    konsultasi.nomor = glob.find((s) => s.kunci === 'konsultasi_wa_nomor')?.nilai ?? ''
-    konsultasi.template = glob.find((s) => s.kunci === 'konsultasi_wa_template')?.nilai ?? ''
-  } catch {
-    /* biarkan kosong */
-  }
+function applyKonsultasi(settings: Setting[]) {
+  konsultasi.nomor = settings.find((s) => s.kunci === 'konsultasi_wa_nomor')?.nilai ?? ''
+  konsultasi.template = settings.find((s) => s.kunci === 'konsultasi_wa_template')?.nilai ?? ''
 }
 
 async function saveKonsultasi() {
+  if (!selectedKos.value) {
+    konsultasiError.value = 'Pilih kos dulu.'
+    return
+  }
   konsultasiSaving.value = true
   konsultasiError.value = null
   konsultasiSaved.value = false
   try {
     await Promise.all([
-      api('/settings', { method: 'POST', body: { kos_id: null, kunci: 'konsultasi_wa_nomor', nilai: konsultasi.nomor } }),
-      api('/settings', { method: 'POST', body: { kos_id: null, kunci: 'konsultasi_wa_template', nilai: konsultasi.template } }),
+      api('/settings', { method: 'POST', body: { kos_id: selectedKos.value, kunci: 'konsultasi_wa_nomor', nilai: konsultasi.nomor } }),
+      api('/settings', { method: 'POST', body: { kos_id: selectedKos.value, kunci: 'konsultasi_wa_template', nilai: konsultasi.template } }),
     ])
     konsultasiSaved.value = true
   } catch (e: any) {
@@ -261,8 +294,7 @@ watch(selectedKos, async () => {
 })
 
 onMounted(async () => {
-  await load()
-  await loadKonsultasi()
+  await Promise.all([load(), loadSiteLogo()])
 })
 </script>
 
@@ -270,7 +302,7 @@ onMounted(async () => {
   <div class="nk-stack">
     <header class="nk-pagehead">
       <h1 class="nk-pagehead__title">Pengaturan</h1>
-      <p class="nk-pagehead__sub">Kebijakan operasional per kos.</p>
+      <p class="nk-pagehead__sub">Logo situs global &amp; pengaturan tiap kos.</p>
     </header>
 
     <p v-if="loading" class="nk-muted">Memuat pengaturan…</p>
@@ -285,11 +317,45 @@ onMounted(async () => {
     </EmptyState>
 
     <template v-else>
+      <!-- ============ GLOBAL (seluruh situs) ============ -->
+      <section class="logo-card nk-rise">
+        <div class="logo-card__info">
+          <h2 class="nk-sect" style="margin-top: 0">Logo situs (global)</h2>
+          <p class="logo-card__hint">
+            Logo utama NgekosKuy — dipakai di sidebar admin, header halaman depan, halaman login, dan invoice.
+            Berlaku untuk seluruh situs. Format gambar, maks 2 MB.
+          </p>
+          <Message v-if="siteLogoError" severity="error" class="logo-card__msg">{{ siteLogoError }}</Message>
+          <span v-if="siteLogoUploading" class="logo-card__status"><i class="pi pi-spin pi-spinner" /> Mengunggah…</span>
+        </div>
+        <ImagePicker :model-value="siteLogo" label="Logo situs" @select="(file) => uploadSiteLogo(file)" />
+      </section>
+
+      <!-- ============ PER KOS ============ -->
+      <section class="group nk-rise">
+        <h2 class="nk-sect" style="margin-top: 0">Pengaturan per kos</h2>
+        <p class="logo-card__hint">
+          Pilih kos, lalu atur logo, favicon, info kantor, konsultasi WhatsApp, jatuh tempo, cicilan, dan denda
+          khusus untuk kos tersebut.
+        </p>
+        <div class="nk-field" style="margin-top: 12px; max-width: 320px">
+          <label class="nk-label">Kos</label>
+          <Select
+            v-model="selectedKos"
+            :options="kosOptions"
+            option-label="label"
+            option-value="value"
+            class="w-full"
+            placeholder="Pilih kos"
+          />
+        </div>
+      </section>
+
       <section class="logo-card nk-rise">
         <div class="logo-card__info">
           <h2 class="nk-sect" style="margin-top: 0">Logo kos</h2>
           <p class="logo-card__hint">
-            Logo tampil di sidebar dan otomatis jadi favicon (ikon tab browser). Format gambar, maks 2 MB.
+            Logo khusus kos ini (tampil di halaman publik kos). Format gambar, maks 2 MB.
           </p>
           <Message v-if="logoError" severity="error" class="logo-card__msg">{{ logoError }}</Message>
           <span v-if="logoUploading" class="logo-card__status"><i class="pi pi-spin pi-spinner" /> Mengunggah…</span>
@@ -380,11 +446,10 @@ onMounted(async () => {
 
       <form class="settings nk-rise" @submit.prevent="saveKonsultasi">
         <section class="group">
-          <h2 class="nk-sect" style="margin-top: 0">Pengaturan sewa kos (Konsultasi WhatsApp)</h2>
+          <h2 class="nk-sect" style="margin-top: 0">Sewa kos (Konsultasi WhatsApp)</h2>
           <p class="logo-card__hint">
-            Berlaku untuk semua kos. Tombol <strong>“Konsultasi Kos”</strong> di halaman publik akan membuka WhatsApp
-            ke nomor ini dengan teks otomatis. Gunakan tag <code>{kos}</code> pada teks — otomatis diganti nama kos
-            (mis. Alisha, Bestari, Ceria) yang sedang dilihat calon penghuni.
+            Khusus kos terpilih. Tombol <strong>“Konsultasi Kos”</strong> di halaman publik kos ini membuka WhatsApp
+            ke nomor ini dengan teks otomatis. Tag <code>{kos}</code> otomatis diganti nama kos.
           </p>
           <div class="grid grid-2" style="margin-top: 14px">
             <div class="nk-field">
@@ -411,17 +476,6 @@ onMounted(async () => {
       </form>
 
       <form class="settings nk-rise" @submit.prevent="save">
-        <div class="nk-field">
-          <label class="nk-label">Kos</label>
-          <Select
-            v-model="selectedKos"
-            :options="kosOptions"
-            option-label="label"
-            option-value="value"
-            class="w-full"
-          />
-        </div>
-
       <section class="group">
         <h2 class="nk-sect">Jatuh tempo</h2>
         <div class="grid">
@@ -492,6 +546,7 @@ onMounted(async () => {
         </div>
       </section>
 
+        <Message v-if="saveError" severity="error" size="small">{{ saveError }}</Message>
         <Message v-if="saved" severity="success" size="small">Pengaturan tersimpan.</Message>
         <Button type="submit" label="Simpan" icon="pi pi-save" :loading="saving" />
       </form>

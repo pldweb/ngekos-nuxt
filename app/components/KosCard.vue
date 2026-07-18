@@ -15,7 +15,10 @@ const cover = computed(() => props.kos.foto?.[0] || null)
     </div>
 
     <div class="kos-card__body">
-      <h3 class="kos-card__title">{{ kos.nama }}</h3>
+      <div class="kos-card__head">
+        <img v-if="kos.logo_url" :src="kos.logo_url" :alt="`Logo ${kos.nama}`" class="kos-card__logo" loading="lazy" />
+        <h3 class="kos-card__title">{{ kos.nama }}</h3>
+      </div>
       <p class="kos-card__loc">
         <i class="pi pi-map-marker" /><span>{{ kos.alamat }}</span>
       </p>
@@ -110,6 +113,16 @@ const cover = computed(() => props.kos.foto?.[0] || null)
   flex-direction: column;
   gap: 6px;
   flex: 1;
+}
+.kos-card__head { display: flex; align-items: center; gap: 8px; }
+.kos-card__logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  border-radius: 7px;
+  background: var(--sand-soft);
+  padding: 3px;
+  flex-shrink: 0;
 }
 .kos-card__title {
   margin: 0;

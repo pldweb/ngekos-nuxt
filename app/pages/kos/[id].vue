@@ -21,14 +21,19 @@ const { data: kos, pending: loading } = await useAsyncData<PublicKos | null>(
 const activeFoto = ref<string | null>(kos.value?.foto?.[0] ?? null)
 watch(kos, (v) => { activeFoto.value = v?.foto?.[0] ?? null })
 
-// Konfigurasi tombol "Konsultasi Kos" (WhatsApp) dari pengaturan sewa (global).
-const { data: konsul } = await useAsyncData('konsultasi-wa', async () => {
-  try {
-    return (await useApi()<{ data: { nomor: string | null; template: string } }>('/public/konsultasi')).data
-  } catch {
-    return { nomor: null, template: '' }
-  }
-})
+// Konfigurasi tombol "Konsultasi Kos" (WhatsApp) — per kos.
+const { data: konsul } = await useAsyncData(
+  `konsultasi-wa-${route.params.id}`,
+  async () => {
+    try {
+      return (await useApi()<{ data: { nomor: string | null; template: string } }>(
+        `/public/kos/${route.params.id}/konsultasi`,
+      )).data
+    } catch {
+      return { nomor: null, template: '' }
+    }
+  },
+)
 
 const waLink = computed(() => {
   const nomor = konsul.value?.nomor
@@ -93,7 +98,10 @@ const statusLabel: Record<string, string> = {
         </div>
 
         <aside class="kd__info">
-          <h1>{{ kos.nama }}</h1>
+          <div class="kd__brand">
+            <img v-if="kos.logo_url" :src="kos.logo_url" :alt="`Logo ${kos.nama}`" class="kd__logo" />
+            <h1>{{ kos.nama }}</h1>
+          </div>
           <p class="kd__loc"><i class="pi pi-map-marker" />{{ kos.alamat }}</p>
 
           <div class="kd__price">
@@ -203,7 +211,9 @@ const statusLabel: Record<string, string> = {
 .kd__thumb--on { border-color: var(--brand); }
 .kd__thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-.kd__info h1 { margin: 0 0 8px; font-size: 26px; font-weight: 800; color: var(--brand-strong); }
+.kd__brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.kd__logo { width: 46px; height: 46px; object-fit: contain; border-radius: 10px; background: var(--sand-soft); padding: 4px; flex-shrink: 0; }
+.kd__info h1 { margin: 0; font-size: 26px; font-weight: 800; color: var(--brand-strong); }
 .kd__loc { display: flex; align-items: center; gap: 6px; margin: 0 0 20px; color: var(--ink-soft); font-size: 14px; }
 .kd__loc i { color: var(--brand-soft); }
 .kd__price {

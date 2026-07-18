@@ -1,14 +1,7 @@
 import { defineStore } from 'pinia'
 
-interface Kos {
-  id: number
-  nama: string
-  logo_url: string | null
-}
-
 export const useBrandStore = defineStore('brand', {
   state: () => ({
-    kosId: null as number | null,
     kosName: null as string | null,
     logoUrl: null as string | null,
     loaded: false,
@@ -17,7 +10,7 @@ export const useBrandStore = defineStore('brand', {
     applyFavicon() {
       if (!import.meta.client || !this.logoUrl) return
       const head = document.head
-      // Hapus favicon lama agar tidak bentrok, lalu pasang logo kos.
+      // Hapus favicon lama agar tidak bentrok, lalu pasang logo situs.
       head.querySelectorAll("link[rel~='icon']").forEach((el) => el.remove())
       const link = document.createElement('link')
       link.rel = 'icon'
@@ -28,16 +21,12 @@ export const useBrandStore = defineStore('brand', {
       if (this.loaded && !force) return
       const api = useApi()
       try {
-        const res = await api<{ data: Kos[] }>('/kos')
-        const primary = res.data?.[0] ?? null
-        if (primary) {
-          this.kosId = primary.id
-          this.kosName = primary.nama
-          this.logoUrl = primary.logo_url
-          this.applyFavicon()
-        }
+        // Logo situs GLOBAL (bukan per kos) untuk sidebar admin + favicon.
+        const res = await api<{ data: { logo_url: string | null } }>('/public/site')
+        this.logoUrl = res.data?.logo_url ?? null
+        this.applyFavicon()
       } catch {
-        /* abaikan: user tanpa akses kos / belum ada kos */
+        /* abaikan */
       } finally {
         this.loaded = true
       }
