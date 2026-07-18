@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const auth = useAuthStore()
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const pop = ref()
 const initial = computed(() => (auth.user?.name?.trim()?.[0] ?? '?').toUpperCase())
@@ -39,6 +41,15 @@ function onAvatar(file: File, preview: string) {
   avatarPreview.value = preview
 }
 
+function confirmSaveProfile() {
+  askConfirm({
+    title: 'Simpan profil?',
+    message: 'Perubahan profil akun akan disimpan.',
+    confirmLabel: 'Simpan',
+    run: saveProfile,
+  })
+}
+
 async function saveProfile() {
   saving.value = true
   saveError.value = null
@@ -55,9 +66,11 @@ async function saveProfile() {
     const res = await api<{ user: any }>('/auth/profile', { method: 'POST', body: fd })
     auth.user = res.user
     editOpen.value = false
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Profil tersimpan.', life: 3000 })
   } catch (e: any) {
     saveError.value =
       e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal menyimpan profil.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: saveError.value, life: 4000 })
   } finally {
     saving.value = false
   }
@@ -134,7 +147,7 @@ async function confirmLogout() {
       </div>
       <template #footer>
         <Button label="Batal" text @click="editOpen = false" />
-        <Button label="Simpan" icon="pi pi-check" :loading="saving" @click="saveProfile" />
+        <Button label="Simpan" icon="pi pi-check" :loading="saving" @click="confirmSaveProfile" />
       </template>
     </Dialog>
 
@@ -146,6 +159,13 @@ async function confirmLogout() {
         <Button label="Keluar" icon="pi pi-sign-out" severity="danger" :loading="loggingOut" @click="confirmLogout" />
       </template>
     </Dialog>
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 

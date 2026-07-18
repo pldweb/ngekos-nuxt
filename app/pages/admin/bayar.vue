@@ -11,6 +11,8 @@ type Invoice = {
 }
 
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const invoices = ref<Invoice[]>([])
 const loading = ref(true)
@@ -28,17 +30,28 @@ const form = reactive({
   catatan: '',
 })
 
-const methodOptions = [
-  { label: 'BCA', value: 'bca' },
-  { label: 'Mandiri', value: 'mandiri' },
-  { label: 'BRI', value: 'bri' },
-  { label: 'BNI', value: 'bni' },
-  { label: 'BSI', value: 'bsi' },
-  { label: 'Jago', value: 'jago' },
-  { label: 'Seabank', value: 'seabank' },
-  { label: 'DANA', value: 'dana' },
-  { label: 'Tunai', value: 'tunai' },
-]
+type PaymentMethod = {
+  kode: string
+  nama: string
+  nama_pemilik_rekening: string | null
+  nomor_rekening: string | null
+  aktif: boolean
+}
+
+const methods = ref<PaymentMethod[]>([
+  { kode: 'tunai', nama: 'Tunai', nama_pemilik_rekening: null, nomor_rekening: null, aktif: true },
+])
+const methodOptions = computed(() => methods.value.map((m) => ({ label: m.nama, value: m.kode })))
+const selectedMethod = computed(() => methods.value.find((m) => m.kode === form.metode_pembayaran) ?? null)
+async function loadMethods() {
+  try {
+    const res = await api<{ data: PaymentMethod[] }>('/payment-methods')
+    methods.value = res.data.length ? res.data : methods.value
+    if (!methods.value.some((m) => m.kode === form.metode_pembayaran)) {
+      form.metode_pembayaran = methods.value[0]?.kode ?? 'tunai'
+    }
+  } catch { /* fallback tunai */ }
+}
 
 const payableInvoices = computed(() =>
   invoices.value.filter((i) => i.status !== 'lunas' && i.status !== 'menunggu_verifikasi' && (i.sisa ?? i.total) > 0),
@@ -80,6 +93,15 @@ async function load() {
   }
 }
 
+function confirmSubmit() {
+  askConfirm({
+    title: 'Kirim pembayaran?',
+    message: 'Data pembayaran dan bukti transfer akan dikirim untuk diverifikasi admin.',
+    confirmLabel: 'Kirim',
+    run: submit,
+  })
+}
+
 async function submit() {
   message.value = null
   error.value = null
@@ -104,18 +126,20 @@ async function submit() {
   try {
     await api(`/invoices/${form.invoice_id}/pay`, { method: 'POST', body })
     message.value = 'Pembayaran dikirim dan menunggu verifikasi.'
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: message.value, life: 3000 })
     proofFile.value = null
     proofName.value = null
     form.catatan = ''
     await load()
   } catch (e: any) {
     error.value = e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal mengirim pembayaran.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: error.value, life: 4000 })
   } finally {
     submitting.value = false
   }
 }
 
-onMounted(load)
+onMounted(async () => { await Promise.all([load(), loadMethods()]) })
 </script>
 
 <template>
@@ -143,7 +167,7 @@ onMounted(load)
       description="Tidak ada tagihan yang menunggu pembayaran saat ini."
     />
 
-    <form v-else class="pay nk-rise" @submit.prevent="submit">
+    <form v-else class="pay nk-rise" @submit.prevent="confirmSubmit">
       <div class="nk-field">
         <label class="nk-label">Tagihan</label>
         <Select
@@ -169,6 +193,14 @@ onMounted(load)
           option-value="value"
           class="w-full"
         />
+      </div>
+
+
+      <div v-if="needsProof && selectedMethod" class="rekening">
+        <span>Tujuan transfer</span>
+        <strong>{{ selectedMethod.nama }}</strong>
+        <p>{{ selectedMethod.nama_pemilik_rekening ?? 'Nama pemilik rekening belum diisi' }}</p>
+        <code>{{ selectedMethod.nomor_rekening ?? 'Nomor rekening belum diisi' }}</code>
       </div>
 
       <div class="grid">
@@ -206,6 +238,13 @@ onMounted(load)
       <Message v-if="error" severity="error" size="small">{{ error }}</Message>
       <Button type="submit" label="Kirim pembayaran" icon="pi pi-send" :loading="submitting" />
     </form>
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 
@@ -233,6 +272,11 @@ onMounted(load)
   color: var(--ink-soft);
 }
 .summary strong { color: var(--ink); font-size: 15px; }
+.rekening { display: grid; gap: 4px; background: #fff; border: 1px dashed var(--brand-soft); border-radius: var(--radius-sm); padding: 12px 14px; }
+.rekening span { font-size: 12px; color: var(--ink-soft); }
+.rekening strong { color: var(--ink); }
+.rekening p { margin: 0; font-size: 13px; color: var(--ink); }
+.rekening code { width: fit-content; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color: var(--brand); }
 .grid { display: grid; gap: 12px; }
 .proof { margin: 8px 0 0; font-size: 12px; color: var(--ink-soft); }
 .w-full { width: 100%; }

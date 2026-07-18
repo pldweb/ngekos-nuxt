@@ -1,6 +1,14 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
+type ConfirmAction = {
+  title: string
+  message: string
+  confirmLabel?: string
+  severity?: 'secondary' | 'success' | 'info' | 'warn' | 'danger' | 'help' | 'contrast'
+  run: () => Promise<void> | void
+}
+
 type Invoice = {
   id: number
   periode: string
@@ -11,6 +19,7 @@ type Invoice = {
 }
 
 const api = useApi()
+const toast = useToast()
 
 const invoices = ref<Invoice[]>([])
 const loading = ref(true)
@@ -19,7 +28,14 @@ const dialog = ref(false)
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const submitMessage = ref<string | null>(null)
+const actionMessage = ref<string | null>(null)
+const actionError = ref<string | null>(null)
+const printingId = ref<number | null>(null)
+const remindingId = ref<number | null>(null)
 const selectedInvoice = ref<Invoice | null>(null)
+const confirmDialog = ref(false)
+const confirming = ref(false)
+const confirmAction = ref<ConfirmAction | null>(null)
 const installmentForm = reactive({
   jumlah_termin: 2,
   tanggal_mulai: new Date().toISOString().slice(0, 10),
@@ -51,6 +67,29 @@ const outstanding = computed(() =>
 const canRequestInstallment = (invoice: Invoice) =>
   invoice.status !== 'lunas' && invoice.status !== 'menunggu_verifikasi' && (invoice.sisa ?? invoice.total) > 0
 
+function askConfirm(action: ConfirmAction) {
+  confirmAction.value = action
+  confirmDialog.value = true
+}
+
+async function runConfirmedAction() {
+  if (!confirmAction.value) return
+  confirming.value = true
+  try {
+    await confirmAction.value.run()
+    confirmDialog.value = false
+    confirmAction.value = null
+  } finally {
+    confirming.value = false
+  }
+}
+
+function cancelConfirmedAction() {
+  if (confirming.value) return
+  confirmDialog.value = false
+  confirmAction.value = null
+}
+
 function openInstallment(invoice: Invoice) {
   selectedInvoice.value = invoice
   installmentForm.jumlah_termin = 2
@@ -79,6 +118,75 @@ function buildTerms(invoice: Invoice) {
   })
 }
 
+function confirmPrintInvoice(invoice: Invoice) {
+  askConfirm({
+    title: 'Cetak invoice?',
+    message: `Invoice periode ${periodeLabel(invoice.periode)} akan diunduh sebagai PDF.`,
+    confirmLabel: 'Cetak',
+    run: () => printInvoice(invoice),
+  })
+}
+
+async function printInvoice(invoice: Invoice) {
+  printingId.value = invoice.id
+  actionMessage.value = null
+  actionError.value = null
+  try {
+    const blob = await api<Blob>(`/invoices/${invoice.id}/pdf`, { responseType: 'blob' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tagihan-${invoice.periode}-${invoice.id}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    actionMessage.value = 'PDF tagihan berhasil diunduh.'
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: actionMessage.value, life: 3000 })
+  } catch (e: any) {
+    actionError.value = e?.data?.message ?? 'Gagal mencetak invoice.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: actionError.value, life: 4000 })
+  } finally {
+    printingId.value = null
+  }
+}
+
+function confirmSendReminder(invoice: Invoice) {
+  askConfirm({
+    title: 'Kirim reminder tagihan?',
+    message: `Reminder pembayaran invoice periode ${periodeLabel(invoice.periode)} akan dikirim ke penghuni.`,
+    confirmLabel: 'Kirim',
+    severity: 'warn',
+    run: () => sendReminder(invoice),
+  })
+}
+
+async function sendReminder(invoice: Invoice) {
+  remindingId.value = invoice.id
+  actionMessage.value = null
+  actionError.value = null
+  try {
+    const res = await api<{ message: string }>(`/invoices/${invoice.id}/remind`, { method: 'POST' })
+    actionMessage.value = res.message
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: res.message, life: 3000 })
+  } catch (e: any) {
+    actionError.value = e?.data?.message ?? 'Gagal mengirim reminder.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: actionError.value, life: 4000 })
+  } finally {
+    remindingId.value = null
+  }
+}
+
+function confirmSubmitInstallment() {
+  if (!selectedInvoice.value) return
+  askConfirm({
+    title: 'Ajukan cicilan?',
+    message: `Rencana cicilan ${installmentForm.jumlah_termin} termin untuk invoice ${periodeLabel(selectedInvoice.value.periode)} akan dibuat.`,
+    confirmLabel: 'Ajukan',
+    run: submitInstallment,
+  })
+}
+
 async function submitInstallment() {
   if (!selectedInvoice.value) return
   submitting.value = true
@@ -94,9 +202,11 @@ async function submitInstallment() {
       },
     })
     submitMessage.value = 'Pengajuan cicilan dikirim.'
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: submitMessage.value, life: 3000 })
     await load()
   } catch (e: any) {
     submitError.value = e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal mengajukan cicilan.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: submitError.value, life: 4000 })
   } finally {
     submitting.value = false
   }
@@ -147,7 +257,12 @@ onMounted(load)
     </EmptyState>
 
     <section v-else class="nk-stack" style="gap: 10px">
-      <h2 class="nk-sect">Daftar tagihan</h2>
+      <div class="section-head">
+        <h2 class="nk-sect">Daftar tagihan</h2>
+        <p class="section-head__hint">Cetak invoice PDF atau kirim reminder email ke penghuni dari tiap tagihan.</p>
+      </div>
+      <Message v-if="actionMessage" severity="success" size="small">{{ actionMessage }}</Message>
+      <Message v-if="actionError" severity="error" size="small">{{ actionError }}</Message>
 
       <EmptyState
         v-if="invoices.length === 0"
@@ -164,14 +279,34 @@ onMounted(load)
           </div>
           <div class="inv__side">
             <Tag :value="statusMeta[inv.status].label" :severity="statusMeta[inv.status].severity" />
-            <Button
-              v-if="canRequestInstallment(inv)"
-              icon="pi pi-list-check"
-              label="Cicilan"
-              size="small"
-              outlined
-              @click="openInstallment(inv)"
-            />
+            <div class="inv__actions">
+              <Button
+                icon="pi pi-file-pdf"
+                label="Cetak"
+                size="small"
+                outlined
+                :loading="printingId === inv.id"
+                @click="confirmPrintInvoice(inv)"
+              />
+              <Button
+                v-if="inv.status !== 'lunas'"
+                icon="pi pi-send"
+                label="Reminder"
+                size="small"
+                severity="secondary"
+                outlined
+                :loading="remindingId === inv.id"
+                @click="confirmSendReminder(inv)"
+              />
+              <Button
+                v-if="canRequestInstallment(inv)"
+                icon="pi pi-list-check"
+                label="Cicilan"
+                size="small"
+                outlined
+                @click="openInstallment(inv)"
+              />
+            </div>
           </div>
         </article>
       </div>
@@ -206,7 +341,25 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Tutup" text @click="dialog = false" />
-        <Button label="Ajukan" icon="pi pi-send" :loading="submitting" @click="submitInstallment" />
+        <Button label="Ajukan" icon="pi pi-send" :loading="submitting" @click="confirmSubmitInstallment" />
+      </template>
+    </Dialog>
+
+    <Dialog
+      v-model:visible="confirmDialog"
+      modal
+      :header="confirmAction?.title ?? 'Konfirmasi aksi'"
+      :style="{ width: '92vw', maxWidth: '440px' }"
+    >
+      <p class="confirm-text">{{ confirmAction?.message }}</p>
+      <template #footer>
+        <Button label="Batal" text :disabled="confirming" @click="cancelConfirmedAction" />
+        <Button
+          :label="confirmAction?.confirmLabel ?? 'Lanjutkan'"
+          :severity="confirmAction?.severity"
+          :loading="confirming"
+          @click="runConfirmedAction"
+        />
       </template>
     </Dialog>
   </div>
@@ -238,6 +391,8 @@ onMounted(load)
   align-items: center;
   gap: 6px;
 }
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.section-head__hint { margin: 0; color: var(--ink-soft); font-size: 12px; }
 .invs { display: grid; gap: 10px; }
 @container appview (min-width: 680px) {
   .invs { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
@@ -261,6 +416,7 @@ onMounted(load)
   align-items: flex-end;
   gap: 8px;
 }
+.inv__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .installment-summary,
 .terms__row {
   display: flex;
@@ -289,5 +445,6 @@ onMounted(load)
 }
 .terms__row + .terms__row { border-top: 1px solid var(--line); }
 .terms__row strong { color: var(--ink); white-space: nowrap; }
+.confirm-text { margin: 0; color: var(--ink); line-height: 1.55; }
 .w-full { width: 100%; }
 </style>

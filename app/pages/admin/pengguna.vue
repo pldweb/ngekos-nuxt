@@ -1,7 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-type Role = 'super_admin' | 'pengelola' | 'penghuni'
+type Role = string
+type RoleOption = { id?: number; name: string }
 type UserRow = {
   id: number
   name: string
@@ -13,14 +14,32 @@ type UserRow = {
 }
 
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const users = ref<UserRow[]>([])
+const roles = ref<RoleOption[]>([
+  { name: 'super_admin' },
+  { name: 'pengelola' },
+  { name: 'penghuni' },
+])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const q = ref('')
 
 const detail = ref<UserRow | null>(null)
 const detailOpen = ref(false)
+const formOpen = ref(false)
+const formSubmitting = ref(false)
+const formError = ref<string | null>(null)
+const editing = ref<UserRow | null>(null)
+const form = reactive({
+  name: '',
+  email: '',
+  phone: '',
+  password: '',
+  roles: [] as Role[],
+})
 
 const roleMeta: Record<string, { label: string; severity: string }> = {
   super_admin: { label: 'Super Admin', severity: 'danger' },
@@ -29,6 +48,7 @@ const roleMeta: Record<string, { label: string; severity: string }> = {
 }
 const initials = (n: string) =>
   n.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+const roleLabel = (role: string) => roleMeta[role]?.label ?? role.replaceAll('_', ' ')
 
 const filtered = computed(() => {
   const term = q.value.trim().toLowerCase()
@@ -43,6 +63,80 @@ function openDetail(u: UserRow) {
   detailOpen.value = true
 }
 
+function resetForm() {
+  form.name = ''
+  form.email = ''
+  form.phone = ''
+  form.password = ''
+  form.roles = ['penghuni']
+  formError.value = null
+}
+
+function openCreate() {
+  editing.value = null
+  resetForm()
+  formOpen.value = true
+}
+
+function openEdit(u: UserRow) {
+  editing.value = u
+  form.name = u.name
+  form.email = u.email
+  form.phone = u.phone ?? ''
+  form.password = ''
+  form.roles = [...u.roles]
+  formError.value = null
+  formOpen.value = true
+}
+
+function confirmSubmitForm() {
+  askConfirm({
+    title: editing.value ? 'Simpan perubahan akun?' : 'Tambah akun?',
+    message: editing.value ? `Akun ${form.name} akan diperbarui.` : `Akun ${form.name} akan dibuat.`,
+    confirmLabel: 'Simpan',
+    run: submitForm,
+  })
+}
+
+async function submitForm() {
+  formSubmitting.value = true
+  formError.value = null
+  try {
+    const body: Record<string, any> = {
+      name: form.name,
+      email: form.email,
+      phone: form.phone || null,
+      roles: form.roles,
+    }
+    if (form.password) body.password = form.password
+    const url = editing.value ? `/users/${editing.value.id}` : '/users'
+    const method = editing.value ? 'PUT' : 'POST'
+    const res = await api<{ data: UserRow }>(url, { method, body })
+    if (editing.value) {
+      users.value = users.value.map((u) => (u.id === res.data.id ? res.data : u))
+      if (detail.value?.id === res.data.id) detail.value = res.data
+    } else {
+      users.value = [res.data, ...users.value]
+    }
+    formOpen.value = false
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: editing.value ? 'Akun diperbarui.' : 'Akun ditambahkan.', life: 3000 })
+  } catch (e: any) {
+    formError.value = e?.data?.message ?? 'Gagal menyimpan akun.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: formError.value, life: 4000 })
+  } finally {
+    formSubmitting.value = false
+  }
+}
+
+async function loadRoles() {
+  try {
+    const res = await api<{ data: RoleOption[] }>('/roles')
+    roles.value = res.data.length ? res.data : roles.value
+  } catch {
+    // Pengelola masih boleh melihat pengguna, tetapi hanya super admin yang mendapat daftar role lengkap.
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = null
@@ -55,7 +149,9 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([load(), loadRoles()])
+})
 </script>
 
 <template>
@@ -65,10 +161,13 @@ onMounted(load)
         <h1 class="nk-pagehead__title">Pengguna</h1>
         <p class="nk-pagehead__sub">Seluruh akun terdaftar di sistem.</p>
       </div>
-      <IconField class="usr__search">
-        <InputIcon class="pi pi-search" />
-        <InputText v-model="q" placeholder="Cari nama / email" />
-      </IconField>
+      <div class="usr__tools">
+        <IconField class="usr__search">
+          <InputIcon class="pi pi-search" />
+          <InputText v-model="q" placeholder="Cari nama / email" />
+        </IconField>
+        <Button label="Tambah akun" icon="pi pi-plus" @click="openCreate" />
+      </div>
     </header>
 
     <p v-if="loading" class="nk-muted">Memuat pengguna…</p>
@@ -132,12 +231,58 @@ onMounted(load)
               />
             </td>
             <td class="text-right">
-              <Button label="Detail" icon="pi pi-arrow-up-right" size="small" text @click="openDetail(u)" />
+              <div class="usr__row-actions">
+                <Button label="Detail" icon="pi pi-arrow-up-right" size="small" text @click="openDetail(u)" />
+                <Button label="Edit" icon="pi pi-pencil" size="small" text @click="openEdit(u)" />
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <Dialog v-model:visible="formOpen" modal :header="editing ? 'Edit akun' : 'Tambah akun'" :style="{ width: '92vw', maxWidth: '520px' }">
+      <form class="usrform" @submit.prevent="confirmSubmitForm">
+        <Message v-if="formError" severity="error" :closable="false">{{ formError }}</Message>
+        <div class="usrform__grid">
+          <div class="field">
+            <label for="name">Nama</label>
+            <InputText id="name" v-model="form.name" required />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <InputText id="email" v-model="form.email" type="email" required />
+          </div>
+          <div class="field">
+            <label for="phone">Nomor HP</label>
+            <InputText id="phone" v-model="form.phone" />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <InputText
+              id="password"
+              v-model="form.password"
+              type="password"
+              :required="!editing"
+              :placeholder="editing ? 'Kosongkan jika tidak diganti' : ''"
+            />
+          </div>
+        </div>
+        <div class="field">
+          <label>Role</label>
+          <div class="usrform__roles">
+            <label v-for="r in roles" :key="r.name" class="usrform__role">
+              <Checkbox v-model="form.roles" :input-id="`role-${r.name}`" :value="r.name" />
+              <span>{{ roleLabel(r.name) }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="usrform__actions">
+          <Button type="button" label="Batal" text @click="formOpen = false" />
+          <Button type="submit" label="Simpan" icon="pi pi-save" :loading="formSubmitting" />
+        </div>
+      </form>
+    </Dialog>
 
     <Dialog v-model:visible="detailOpen" modal header="Detail pengguna" :style="{ width: '92vw', maxWidth: '420px' }">
       <div v-if="detail" class="det">
@@ -174,11 +319,20 @@ onMounted(load)
         <Button label="Tutup" text @click="detailOpen = false" />
       </template>
     </Dialog>
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 
 <style scoped>
+.usr__tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
 .usr__search :deep(.p-inputtext) { min-width: 220px; }
+.usr__row-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
 
 .usr__wrap {
   background: var(--surface);
@@ -244,9 +398,30 @@ onMounted(load)
 .det__row dt { color: var(--ink-soft); }
 .det__row dd { margin: 0; color: var(--ink); font-weight: 500; text-align: right; }
 
+.usrform { display: flex; flex-direction: column; gap: 16px; }
+.usrform__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.usrform .field { display: flex; flex-direction: column; gap: 6px; }
+.usrform label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.usrform__roles { display: flex; flex-wrap: wrap; gap: 10px; }
+.usrform__role {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.usrform__role span { text-transform: capitalize; }
+.usrform__actions { display: flex; justify-content: flex-end; gap: 8px; }
+
 /* Mobile: sederhanakan tabel */
 @container appview (max-width: 640px) {
   .usr__hide-sm { display: none; }
   .usr__show-sm { display: block; margin-top: 3px; font-size: 12.5px; color: var(--ink-soft); }
+  .usr__tools { width: 100%; justify-content: stretch; }
+  .usr__search, .usr__tools :deep(.p-inputtext), .usr__tools :deep(.p-button) { width: 100%; }
+  .usr__row-actions { flex-direction: column; align-items: flex-end; }
+  .usrform__grid { grid-template-columns: 1fr; }
 }
 </style>

@@ -75,6 +75,7 @@ const bookingStatus: Record<string, { label: string; tone: string }> = {
 }
 const initial = (name: string) => (name?.[0] ?? '?').toUpperCase()
 const isLunas = (s: string) => s === 'approved' || s === 'lunas'
+const txLink = (tipe: 'booking' | 'payment', id: number) => `/admin/transaksi?tipe=${tipe}#${tipe}-${id}`
 
 async function load() {
   loading.value = true
@@ -186,10 +187,11 @@ onMounted(load)
         <section class="panel">
           <div class="panel__head">
             <h3>Pemesanan Terbaru</h3>
-            <NuxtLink to="/admin/penghuni" class="panel__link">Lihat Semua</NuxtLink>
+            <NuxtLink to="/admin/transaksi?tipe=booking" class="panel__link">Lihat Semua</NuxtLink>
           </div>
           <ul v-if="bookings.length" class="list">
-            <li v-for="b in bookings" :key="b.id" class="list__row">
+            <li v-for="b in bookings" :key="b.id">
+              <NuxtLink :to="txLink('booking', b.id)" class="list__row list__row--link">
               <span class="list__avatar">{{ initial(b.nama) }}</span>
               <div class="list__main">
                 <strong>{{ b.nama }}</strong>
@@ -198,6 +200,7 @@ onMounted(load)
               <span class="tag" :class="`tag--${bookingStatus[b.status]?.tone ?? 'warn'}`">
                 {{ bookingStatus[b.status]?.label ?? b.status }}
               </span>
+              </NuxtLink>
             </li>
           </ul>
           <p v-else class="list__empty">Belum ada pemesanan.</p>
@@ -206,10 +209,11 @@ onMounted(load)
         <section class="panel">
           <div class="panel__head">
             <h3>Pembayaran Terbaru</h3>
-            <NuxtLink to="/admin/tagihan" class="panel__link">Lihat Semua</NuxtLink>
+            <NuxtLink to="/admin/transaksi?tipe=payment" class="panel__link">Lihat Semua</NuxtLink>
           </div>
           <ul v-if="payments.length" class="list">
-            <li v-for="p in payments" :key="p.id" class="list__row">
+            <li v-for="p in payments" :key="p.id">
+              <NuxtLink :to="txLink('payment', p.id)" class="list__row list__row--link">
               <span class="list__doc"><i class="pi pi-file" /></span>
               <div class="list__main">
                 <strong>Invoice #{{ p.invoice_id }}</strong>
@@ -221,6 +225,7 @@ onMounted(load)
                   {{ isLunas(p.status) ? 'Lunas' : 'Pending' }}
                 </span>
               </div>
+              </NuxtLink>
             </li>
           </ul>
           <p v-else class="list__empty">Belum ada pembayaran.</p>
@@ -355,8 +360,10 @@ onMounted(load)
 
 /* Lists */
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.list__row { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
-.list__row + .list__row { border-top: 1px solid var(--line); }
+.list__row { display: flex; align-items: center; gap: 12px; padding: 12px 0; color: inherit; }
+.list__row--link { border-radius: 12px; padding-inline: 8px; margin-inline: -8px; transition: background .16s ease; }
+.list__row--link:hover { background: var(--surface-2); }
+.list li + li { border-top: 1px solid var(--line); }
 .list__avatar {
   width: 40px; height: 40px; flex-shrink: 0;
   display: grid; place-items: center; border-radius: 50%;

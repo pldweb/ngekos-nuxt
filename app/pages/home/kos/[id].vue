@@ -44,6 +44,7 @@ const bookError = ref<string | null>(null)
 const bookDone = ref<string | null>(null)
 const book = reactive({
   room_id: null as number | null,
+  tanggal_mulai: new Date().toISOString().slice(0, 10),
   durasi_sewa: 1,
   nama: '',
   kontak: '',
@@ -56,6 +57,7 @@ const roomOptions = computed(() =>
 function openBooking(roomId: number | null = null) {
   Object.assign(book, {
     room_id: roomId ?? availableRooms.value[0]?.id ?? null,
+    tanggal_mulai: new Date().toISOString().slice(0, 10),
     durasi_sewa: 1,
     nama: auth.user?.name ?? '',
     kontak: auth.user?.phone ?? '',
@@ -77,6 +79,7 @@ async function submitBooking() {
         room_id: book.room_id,
         nama: book.nama,
         kontak: book.kontak,
+        tanggal_mulai: book.tanggal_mulai,
         durasi_sewa: book.durasi_sewa,
       },
     })
@@ -151,6 +154,11 @@ async function submitBooking() {
         <p>{{ kos.deskripsi }}</p>
       </div>
 
+      <div v-if="kos.peraturan_kos" class="kd__section">
+        <h2>Peraturan Kos</h2>
+        <p class="kd__rules">{{ kos.peraturan_kos }}</p>
+      </div>
+
       <!-- Kamar -->
       <div v-if="kos.rooms && kos.rooms.length" class="kd__section">
         <h2>Pilihan Kamar</h2>
@@ -198,6 +206,10 @@ async function submitBooking() {
             placeholder="Pilih kamar kosong"
             class="w-full"
           />
+        </div>
+        <div class="nk-field">
+          <label class="nk-label">Mulai sewa</label>
+          <DateField v-model="book.tanggal_mulai" />
         </div>
         <div class="nk-field">
           <label class="nk-label">Durasi sewa (bulan)</label>
@@ -271,6 +283,7 @@ async function submitBooking() {
 
 .kd__section { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .kd__section h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--brand-strong); }
+.kd__rules { white-space: pre-line; }
 .kd__section p { margin: 0; line-height: 1.7; color: var(--ink); font-size: 14px; }
 .kd__rooms { display: grid; gap: 10px; }
 .kd__room { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }

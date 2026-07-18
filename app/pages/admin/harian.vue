@@ -15,6 +15,8 @@ type ShortStay = {
 }
 
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const rooms = ref<Room[]>([])
 const stays = ref<ShortStay[]>([])
@@ -81,6 +83,15 @@ function resetForm() {
   form.tarif_per_malam = 0
 }
 
+function confirmSubmit() {
+  askConfirm({
+    title: 'Simpan pemesanan?',
+    message: 'Pemesanan kos harian baru akan dibuat.',
+    confirmLabel: 'Simpan',
+    run: submit,
+  })
+}
+
 async function submit() {
   saving.value = true
   error.value = null
@@ -91,13 +102,26 @@ async function submit() {
       body: { ...form },
     })
     message.value = 'Pemesanan tersimpan.'
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: message.value, life: 3000 })
     resetForm()
     await load()
   } catch (e: any) {
     error.value = e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal menyimpan pemesanan.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: error.value, life: 4000 })
   } finally {
     saving.value = false
   }
+}
+
+function confirmAksi(stay: ShortStay, path: string) {
+  const labels: Record<string, string> = { approve: 'setujui', finish: 'selesaikan', reject: 'batalkan' }
+  askConfirm({
+    title: `${labels[path] ?? 'ubah'} pemesanan?`,
+    message: `Pemesanan ${stay.nama_tamu} akan di${labels[path] ?? 'ubah statusnya'}.`,
+    confirmLabel: labels[path] === 'batalkan' ? 'Batalkan' : 'Lanjutkan',
+    severity: path === 'reject' ? 'danger' : undefined,
+    run: () => aksi(stay, path),
+  })
 }
 
 async function aksi(stay: ShortStay, path: string) {
@@ -106,9 +130,11 @@ async function aksi(stay: ShortStay, path: string) {
   try {
     await api(`/short-stays/${stay.id}/${path}`, { method: 'POST' })
     message.value = 'Status diperbarui.'
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: message.value, life: 3000 })
     await load()
   } catch (e: any) {
     error.value = e?.data?.message ?? 'Gagal memperbarui status.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: error.value, life: 4000 })
   }
 }
 
@@ -134,7 +160,7 @@ onMounted(load)
     </EmptyState>
 
     <template v-else>
-      <form class="form nk-rise" @submit.prevent="submit">
+      <form class="form nk-rise" @submit.prevent="confirmSubmit">
         <h2 class="nk-sect">Pemesanan baru</h2>
 
         <div class="nk-field">
@@ -204,14 +230,14 @@ onMounted(load)
               label="Setujui"
               icon="pi pi-check"
               size="small"
-              @click="aksi(stay, 'approve')"
+              @click="confirmAksi(stay, 'approve')"
             />
             <Button
               v-if="['dikonfirmasi', 'menginap'].includes(stay.status)"
               label="Selesai"
               icon="pi pi-flag"
               size="small"
-              @click="aksi(stay, 'finish')"
+              @click="confirmAksi(stay, 'finish')"
             />
             <Button
               label="Batalkan"
@@ -219,12 +245,19 @@ onMounted(load)
               severity="danger"
               outlined
               size="small"
-              @click="aksi(stay, 'reject')"
+              @click="confirmAksi(stay, 'reject')"
             />
           </div>
         </article>
       </section>
     </template>
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 

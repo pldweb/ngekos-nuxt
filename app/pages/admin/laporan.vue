@@ -39,6 +39,8 @@ type ExpenseByCategory = {
 }
 
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const stats = ref<Stats | null>(null)
 const pl = ref<ProfitLoss | null>(null)
@@ -62,6 +64,15 @@ const tipeLabel: Record<string, string> = {
 const exporting = ref(false)
 const exportMsg = ref<string | null>(null)
 
+function confirmExportPdf() {
+  askConfirm({
+    title: 'Export laporan PDF?',
+    message: 'Laporan keuangan bulan ini akan dibuat dan diunduh sebagai PDF.',
+    confirmLabel: 'Export',
+    run: exportPdf,
+  })
+}
+
 async function exportPdf() {
   exporting.value = true
   exportMsg.value = null
@@ -77,8 +88,10 @@ async function exportPdf() {
     a.remove()
     URL.revokeObjectURL(url)
     exportMsg.value = 'Laporan berhasil diunduh.'
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: exportMsg.value, life: 3000 })
   } catch (e: any) {
     exportMsg.value = e?.data?.message ?? 'Gagal mengunduh laporan.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: exportMsg.value, life: 4000 })
   } finally {
     exporting.value = false
   }
@@ -120,7 +133,7 @@ onMounted(load)
         icon="pi pi-file-pdf"
         :loading="exporting"
         severity="secondary"
-        @click="exportPdf"
+        @click="confirmExportPdf"
       />
     </header>
 
@@ -208,6 +221,13 @@ onMounted(load)
         </div>
       </section>
     </template>
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 

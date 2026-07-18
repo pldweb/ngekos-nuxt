@@ -20,6 +20,8 @@ type UpsertItem = {
 }
 
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const rooms = ref<Room[]>([])
 const kosList = ref<Kos[]>([])
@@ -94,6 +96,7 @@ function nextNomor(kosId: number | null) {
 
 function flash(msg: string) {
   notice.value = msg
+  toast.add({ severity: 'success', summary: 'Berhasil', detail: msg, life: 3000 })
   setTimeout(() => (notice.value = null), 4000)
 }
 
@@ -165,6 +168,15 @@ function openDuplicate(room: Room) {
   dialog.value = true
 }
 
+function confirmSubmitRoom() {
+  askConfirm({
+    title: editingId.value ? 'Simpan perubahan kamar?' : 'Simpan kamar?',
+    message: editingId.value ? `Kamar ${form.nomor} akan diperbarui.` : `Kamar ${form.nomor} akan ditambahkan.`,
+    confirmLabel: 'Simpan',
+    run: submitRoom,
+  })
+}
+
 async function submitRoom() {
   saving.value = true
   formError.value = null
@@ -188,6 +200,7 @@ async function submitRoom() {
   } catch (e: any) {
     formError.value =
       e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal menyimpan kamar.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: formError.value, life: 4000 })
   } finally {
     saving.value = false
   }
@@ -214,6 +227,7 @@ async function doDelete() {
     await load()
   } catch (e: any) {
     deleteError.value = e?.data?.message ?? 'Gagal menghapus kamar.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: deleteError.value, life: 4000 })
   } finally {
     deleting.value = false
   }
@@ -230,6 +244,15 @@ function openCreateKos() {
   kosForm.alamat = ''
   kosError.value = null
   kosDialog.value = true
+}
+
+function confirmSubmitKos() {
+  askConfirm({
+    title: 'Tambah kos?',
+    message: `Kos ${kosForm.nama.trim() || 'baru'} akan ditambahkan.`,
+    confirmLabel: 'Simpan',
+    run: submitKos,
+  })
 }
 
 async function submitKos() {
@@ -250,6 +273,7 @@ async function submitKos() {
   } catch (e: any) {
     kosError.value =
       e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal menambah kos.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: kosError.value, life: 4000 })
   } finally {
     kosSaving.value = false
   }
@@ -283,6 +307,15 @@ function openGenerate() {
   genDialog.value = true
 }
 
+function confirmSubmitGenerate() {
+  askConfirm({
+    title: 'Generate kamar massal?',
+    message: `${genPreview.value.length} kamar akan dibuat/diperbarui untuk kos terpilih.`,
+    confirmLabel: 'Generate',
+    run: submitGenerate,
+  })
+}
+
 async function submitGenerate() {
   genError.value = null
   if (!gen.kos_id) return (genError.value = 'Pilih kos dulu.')
@@ -301,6 +334,7 @@ async function submitGenerate() {
     await load()
   } catch (e: any) {
     genError.value = e?.data?.message ?? 'Gagal generate kamar.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: genError.value, life: 4000 })
   } finally {
     genSaving.value = false
   }
@@ -348,6 +382,15 @@ function openImport() {
   impDialog.value = true
 }
 
+function confirmSubmitImport() {
+  askConfirm({
+    title: 'Import kamar?',
+    message: `${impParsed.value.length} kamar akan diimpor/diperbarui untuk kos terpilih.`,
+    confirmLabel: 'Import',
+    run: submitImport,
+  })
+}
+
 async function submitImport() {
   impError.value = null
   if (!imp.kos_id) return (impError.value = 'Pilih kos dulu.')
@@ -360,6 +403,7 @@ async function submitImport() {
     await load()
   } catch (e: any) {
     impError.value = e?.data?.message ?? 'Gagal impor kamar.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: impError.value, life: 4000 })
   } finally {
     impSaving.value = false
   }
@@ -390,6 +434,15 @@ function openBulkEdit() {
   bulkDialog.value = true
 }
 
+function confirmSubmitBulkEdit() {
+  askConfirm({
+    title: 'Terapkan edit massal?',
+    message: `${selectedRooms.value.length} kamar terpilih akan diperbarui harganya.`,
+    confirmLabel: 'Terapkan',
+    run: submitBulkEdit,
+  })
+}
+
 async function submitBulkEdit() {
   bulkError.value = null
   if (!bulkHarga.value || bulkHarga.value < 0) return (bulkError.value = 'Isi harga baru.')
@@ -408,6 +461,7 @@ async function submitBulkEdit() {
     await load()
   } catch (e: any) {
     bulkError.value = e?.data?.message ?? 'Gagal memperbarui kamar.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: bulkError.value, life: 4000 })
   } finally {
     bulkSaving.value = false
   }
@@ -591,7 +645,7 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Batal" text @click="dialog = false" />
-        <Button label="Simpan" icon="pi pi-check" :loading="saving" @click="submitRoom" />
+        <Button label="Simpan" icon="pi pi-check" :loading="saving" @click="confirmSubmitRoom" />
       </template>
     </Dialog>
 
@@ -630,7 +684,7 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Batal" text @click="genDialog = false" />
-        <Button label="Generate" icon="pi pi-bolt" :loading="genSaving" @click="submitGenerate" />
+        <Button label="Generate" icon="pi pi-bolt" :loading="genSaving" @click="confirmSubmitGenerate" />
       </template>
     </Dialog>
 
@@ -658,7 +712,7 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Batal" text @click="impDialog = false" />
-        <Button label="Import" icon="pi pi-clipboard" :loading="impSaving" :disabled="!impParsed.length" @click="submitImport" />
+        <Button label="Import" icon="pi pi-clipboard" :loading="impSaving" :disabled="!impParsed.length" @click="confirmSubmitImport" />
       </template>
     </Dialog>
 
@@ -674,7 +728,7 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Batal" text @click="bulkDialog = false" />
-        <Button label="Terapkan" icon="pi pi-check" :loading="bulkSaving" @click="submitBulkEdit" />
+        <Button label="Terapkan" icon="pi pi-check" :loading="bulkSaving" @click="confirmSubmitBulkEdit" />
       </template>
     </Dialog>
 
@@ -694,7 +748,7 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Batal" text @click="kosDialog = false" />
-        <Button label="Simpan" icon="pi pi-check" :loading="kosSaving" @click="submitKos" />
+        <Button label="Simpan" icon="pi pi-check" :loading="kosSaving" @click="confirmSubmitKos" />
       </template>
     </Dialog>
 
@@ -717,6 +771,13 @@ onMounted(load)
         <Button label="Hapus" icon="pi pi-trash" severity="danger" :loading="deleting" @click="doDelete" />
       </template>
     </Dialog>
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 

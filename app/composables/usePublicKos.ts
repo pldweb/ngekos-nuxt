@@ -31,6 +31,7 @@ export interface PublicKos {
   og_image_url: string | null
   informasi_kantor: OfficeInfo | null
   fasilitas: string[]
+  peraturan_kos?: string | null
   populer: boolean
   harga_mulai: number | null
   kamar_tersedia: number | null

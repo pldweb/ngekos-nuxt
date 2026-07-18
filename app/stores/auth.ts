@@ -36,7 +36,12 @@ export const useAuthStore = defineStore('auth', {
       password: string; password_confirmation: string
     }) {
       const api = useApi()
-      return await api('/auth/register', { method: 'POST', body: payload })
+      const res = await api<{ token?: string; user?: AuthUser; otp_required?: boolean }>('/auth/register', { method: 'POST', body: payload })
+      if (res.token && res.user) {
+        this.setToken(res.token)
+        this.user = res.user
+      }
+      return res
     },
     async requestOtp(email: string) {
       const api = useApi()

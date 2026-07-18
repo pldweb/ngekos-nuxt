@@ -9,8 +9,12 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await auth.register(form)
-    await navigateTo(`/otp?email=${encodeURIComponent(form.email)}`)
+    const res: any = await auth.register(form)
+    if (res?.otp_required) {
+      await navigateTo(`/otp?email=${encodeURIComponent(form.email)}`)
+    } else {
+      await navigateTo(auth.isAdmin ? '/admin' : '/home')
+    }
   } catch (e: any) {
     error.value = e?.data?.message || 'Registrasi gagal. Periksa data Anda.'
   } finally {

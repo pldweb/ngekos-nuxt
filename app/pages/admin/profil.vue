@@ -2,12 +2,23 @@
 definePageMeta({ middleware: 'auth' })
 const auth = useAuthStore()
 const loading = ref(false)
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const initial = computed(() => (auth.user?.name?.trim()?.[0] ?? '?').toUpperCase())
 const roleLabel = computed(() => {
   const r = auth.user?.roles?.[0] ?? ''
   return { super_admin: 'Super Admin', pengelola: 'Pengelola', penghuni: 'Penghuni' }[r] ?? r
 })
+
+function confirmLogout() {
+  askConfirm({
+    title: 'Keluar dari akun?',
+    message: 'Sesi admin akan diakhiri dan kamu perlu login kembali.',
+    confirmLabel: 'Keluar',
+    severity: 'danger',
+    run: doLogout,
+  })
+}
 
 async function doLogout() {
   loading.value = true
@@ -59,7 +70,14 @@ async function doLogout() {
       icon="pi pi-sign-out"
       label="Keluar"
       :loading="loading"
-      @click="doLogout"
+      @click="confirmLogout"
+    />
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
     />
   </div>
 </template>

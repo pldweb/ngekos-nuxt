@@ -8,9 +8,7 @@
       <NuxtLink to="/home" class="app__brand">
         <SiteLogo :height="34" />
       </NuxtLink>
-      <button class="app__icon" type="button" aria-label="Notifikasi">
-        <i class="pi pi-bell" />
-      </button>
+      <NotifBell />
     </header>
 
     <main class="app__main">

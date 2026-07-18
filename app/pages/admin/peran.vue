@@ -10,6 +10,8 @@ type RoleRow = {
 }
 
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const roles = ref<RoleRow[]>([])
 const allPerms = ref<string[]>([])
@@ -87,6 +89,17 @@ function groupAllOn(items: { name: string }[]) {
   return items.every((i) => draft.value.includes(i.name))
 }
 
+function confirmSave() {
+  const r = selectedRole.value
+  if (!r) return
+  askConfirm({
+    title: 'Simpan hak akses?',
+    message: `Hak akses peran ${roleLabel(r.name)} akan diperbarui.`,
+    confirmLabel: 'Simpan',
+    run: save,
+  })
+}
+
 async function save() {
   const r = selectedRole.value
   if (!r) return
@@ -100,11 +113,23 @@ async function save() {
     })
     r.permissions = res.role.permissions
     saveMsg.value = 'Hak akses tersimpan.'
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: saveMsg.value, life: 3000 })
   } catch (e: any) {
     saveErr.value = e?.data?.message ?? 'Gagal menyimpan hak akses.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: saveErr.value, life: 4000 })
   } finally {
     saving.value = false
   }
+}
+
+function confirmCreateRole() {
+  if (!newRole.name.trim()) return
+  askConfirm({
+    title: 'Tambah peran?',
+    message: `Peran ${newRole.name.trim()} akan dibuat.`,
+    confirmLabel: 'Buat',
+    run: createRole,
+  })
 }
 
 async function createRole() {
@@ -119,23 +144,36 @@ async function createRole() {
     createOpen.value = false
     newRole.name = ''
     selectRole(res.role)
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Peran dibuat.', life: 3000 })
   } catch (e: any) {
     createErr.value =
       e?.data?.message ?? Object.values(e?.data?.errors ?? {})?.[0]?.[0] ?? 'Gagal membuat peran.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: createErr.value, life: 4000 })
   } finally {
     creating.value = false
   }
 }
 
+function confirmRemoveRole(r: RoleRow) {
+  askConfirm({
+    title: 'Hapus peran?',
+    message: `Peran ${roleLabel(r.name)} akan dihapus.`,
+    confirmLabel: 'Hapus',
+    severity: 'danger',
+    run: () => removeRole(r),
+  })
+}
+
 async function removeRole(r: RoleRow) {
-  if (!confirm(`Hapus peran "${roleLabel(r.name)}"?`)) return
   try {
     await api(`/roles/${r.id}`, { method: 'DELETE' })
     roles.value = roles.value.filter((x) => x.id !== r.id)
     if (selectedId.value === r.id) selectedId.value = roles.value[0]?.id ?? null
     if (selectedRole.value) draft.value = [...selectedRole.value.permissions]
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Peran dihapus.', life: 3000 })
   } catch (e: any) {
-    alert(e?.data?.message ?? 'Gagal menghapus peran.')
+    const message = e?.data?.message ?? 'Gagal menghapus peran.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: message, life: 4000 })
   }
 }
 
@@ -199,7 +237,7 @@ onMounted(load)
             class="pi pi-trash rolecard__del"
             role="button"
             aria-label="Hapus peran"
-            @click.stop="removeRole(r)"
+            @click.stop="confirmRemoveRole(r)"
           />
         </button>
       </aside>
@@ -218,7 +256,7 @@ onMounted(load)
               icon="pi pi-check"
               :disabled="!dirty"
               :loading="saving"
-              @click="save"
+              @click="confirmSave"
             />
           </div>
 
@@ -268,9 +306,17 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Batal" text @click="createOpen = false" />
-        <Button label="Buat" icon="pi pi-check" :loading="creating" :disabled="!newRole.name.trim()" @click="createRole" />
+        <Button label="Buat" icon="pi pi-check" :loading="creating" :disabled="!newRole.name.trim()" @click="confirmCreateRole" />
       </template>
     </Dialog>
+
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 

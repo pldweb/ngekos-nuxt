@@ -15,6 +15,10 @@ async function submit() {
     await auth.login(form.email, form.password)
     await navigateTo(auth.isAdmin ? '/admin' : '/home')
   } catch (e: any) {
+    if (e?.data?.otp_required) {
+      await navigateTo(`/otp?email=${encodeURIComponent(e.data.email || form.email)}`)
+      return
+    }
     error.value = e?.data?.message || 'Login gagal. Coba lagi.'
   } finally {
     loading.value = false

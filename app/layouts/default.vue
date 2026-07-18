@@ -2,9 +2,7 @@
   <div class="app">
     <header class="app__bar">
       <BrandMark size="sm" />
-      <button class="app__icon" type="button" aria-label="Notifikasi">
-        <i class="pi pi-bell" />
-      </button>
+      <NotifBell />
     </header>
 
     <main class="app__main">

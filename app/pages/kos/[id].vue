@@ -4,6 +4,8 @@ import type { PublicKos } from '~/composables/usePublicKos'
 definePageMeta({ layout: 'public' })
 
 const route = useRoute()
+const auth = useAuthStore()
+const api = useApi()
 const { detail } = usePublicKos()
 
 // Diambil saat SSR agar meta og:image ikut terender di HTML awal (dibaca crawler).
@@ -26,7 +28,7 @@ const { data: konsul } = await useAsyncData(
   `konsultasi-wa-${route.params.id}`,
   async () => {
     try {
-      return (await useApi()<{ data: { nomor: string | null; template: string } }>(
+      return (await api<{ data: { nomor: string | null; template: string } }>(
         `/public/kos/${route.params.id}/konsultasi`,
       )).data
     } catch {
@@ -42,6 +44,59 @@ const waLink = computed(() => {
   const teks = (konsul.value?.template ?? '').replaceAll('{kos}', kos.value.nama)
   return `https://wa.me/${digits}?text=${encodeURIComponent(teks)}`
 })
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+const bookDialog = ref(false)
+const bookSaving = ref(false)
+const bookError = ref<string | null>(null)
+const book = reactive({
+  room_id: null as number | null,
+  nama: '',
+  kontak: '',
+  tanggal_mulai: today(),
+  durasi_sewa: 1,
+})
+
+const availableRooms = computed(() => (kos.value?.rooms ?? []).filter((r) => r.status === 'kosong'))
+const roomOptions = computed(() => availableRooms.value.map((r) => ({
+  label: `Kamar ${r.nomor} - ${formatRupiah(r.harga_sewa)}/bulan`,
+  value: r.id,
+})))
+
+function openBooking() {
+  book.room_id = availableRooms.value[0]?.id ?? null
+  book.nama = auth.user?.name ?? ''
+  book.kontak = auth.user?.phone ?? ''
+  book.tanggal_mulai = today()
+  book.durasi_sewa = 1
+  bookError.value = null
+  bookDialog.value = true
+}
+
+async function submitBooking() {
+  if (!book.room_id) return
+  bookSaving.value = true
+  bookError.value = null
+  try {
+    await api('/bookings', {
+      method: 'POST',
+      body: {
+        room_id: book.room_id,
+        nama: book.nama,
+        kontak: book.kontak,
+        tanggal_mulai: book.tanggal_mulai,
+        durasi_sewa: book.durasi_sewa,
+      },
+    })
+    bookDialog.value = false
+    await navigateTo(auth.isAuthenticated ? '/home/bayar' : '/register')
+  } catch (e: any) {
+    bookError.value = e?.data?.message ?? 'Gagal mengajukan sewa.'
+  } finally {
+    bookSaving.value = false
+  }
+}
 
 const ogImage = computed(() => kos.value?.og_image_url ?? kos.value?.logo_url ?? '/logo-ngekoskuy.png')
 
@@ -125,9 +180,15 @@ const statusLabel: Record<string, string> = {
           </div>
 
           <div class="kd__actions">
-            <NuxtLink to="/login" class="kd__cta">
-              <Button label="Ajukan Sewa" icon="pi pi-arrow-right" iconPos="right" rounded />
-            </NuxtLink>
+            <Button
+              class="kd__cta"
+              label="Ajukan Sewa"
+              icon="pi pi-arrow-right"
+              iconPos="right"
+              rounded
+              :disabled="availableRooms.length === 0"
+              @click="openBooking"
+            />
             <a
               v-if="waLink"
               :href="waLink"
@@ -145,6 +206,53 @@ const statusLabel: Record<string, string> = {
         <h2>Deskripsi</h2>
         <p>{{ kos.deskripsi }}</p>
       </section>
+
+      <section v-if="kos.peraturan_kos" class="kd__section">
+        <h2>Peraturan Kos</h2>
+        <p class="kd__rules">{{ kos.peraturan_kos }}</p>
+      </section>
+
+      <Dialog v-model:visible="bookDialog" modal header="Ajukan sewa" :style="{ width: '92vw', maxWidth: '480px' }">
+        <form class="book" @submit.prevent="submitBooking">
+          <Message v-if="bookError" severity="error" :closable="false">{{ bookError }}</Message>
+          <div class="field">
+            <label for="room">Kamar</label>
+            <Dropdown
+              id="room"
+              v-model="book.room_id"
+              :options="roomOptions"
+              option-label="label"
+              option-value="value"
+              placeholder="Pilih kamar"
+              class="w-full"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="name">Nama</label>
+            <InputText id="name" v-model="book.nama" required />
+          </div>
+          <div class="field">
+            <label for="phone">No. WhatsApp</label>
+            <InputText id="phone" v-model="book.kontak" required />
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div class="field">
+              <label for="start">Mulai sewa</label>
+              <DateField id="start" v-model="book.tanggal_mulai" required />
+            </div>
+            <div class="field">
+              <label for="duration">Durasi (bulan)</label>
+              <InputNumber id="duration" v-model="book.durasi_sewa" :min="1" show-buttons />
+            </div>
+          </div>
+          <p class="book__hint">Setelah pengajuan, akun yang sudah login akan diarahkan ke pembayaran. Jika belum punya akun, lanjut daftar dulu untuk meneruskan transaksi.</p>
+          <div class="flex justify-end gap-2">
+            <Button type="button" label="Batal" text @click="bookDialog = false" />
+            <Button type="submit" label="Ajukan" icon="pi pi-send" :loading="bookSaving" />
+          </div>
+        </form>
+      </Dialog>
 
       <section v-if="kos.rooms && kos.rooms.length" class="kd__section">
         <h2>Pilihan Kamar</h2>
@@ -234,12 +342,18 @@ const statusLabel: Record<string, string> = {
   padding: 7px 12px; border-radius: 999px; font-size: 12.5px; color: var(--brand-soft);
 }
 .kd__actions { display: flex; flex-direction: column; gap: 10px; }
-.kd__cta { display: block; }
+.kd__cta { width: 100%; }
 .kd__cta :deep(.p-button) { width: 100%; }
+
+.book { display: flex; flex-direction: column; gap: 14px; }
+.book .field { display: flex; flex-direction: column; gap: 6px; }
+.book label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.book__hint { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); }
 
 .kd__section { margin-top: 44px; }
 .kd__section h2 { margin: 0 0 14px; font-size: 20px; font-weight: 700; color: var(--brand-strong); }
 .kd__section p { margin: 0; line-height: 1.7; color: var(--ink); }
+.kd__rules { white-space: pre-line; }
 .kd__rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
 .kd__room { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
 .kd__room-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }

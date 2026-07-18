@@ -74,11 +74,15 @@ const nav = [
   { label: 'Penghuni', icon: 'pi pi-users', to: '/admin/penghuni', group: 'Kelola' },
   { label: 'Pengguna', icon: 'pi pi-id-card', to: '/admin/pengguna', group: 'Kelola' },
   { label: 'Tagihan', icon: 'pi pi-file', to: '/admin/tagihan', group: 'Keuangan' },
+  { label: 'Transaksi', icon: 'pi pi-receipt', to: '/admin/transaksi', group: 'Keuangan' },
+  { label: 'Verifikasi Pembayaran', icon: 'pi pi-check-square', to: '/admin/verifikasi-pembayaran', group: 'Keuangan' },
   { label: 'Laporan', icon: 'pi pi-chart-bar', to: '/admin/laporan', group: 'Keuangan' },
   { label: 'Kos Harian', icon: 'pi pi-calendar', to: '/admin/harian', group: 'Keuangan' },
   { label: 'Pengaduan', icon: 'pi pi-comment', to: '/admin/pengaduan', group: 'Lainnya' },
+  { label: 'Testimoni', icon: 'pi pi-star', to: '/admin/testimoni', group: 'Lainnya' },
   { label: 'Log Aktivitas', icon: 'pi pi-history', to: '/admin/aktivitas', group: 'Lainnya' },
   { label: 'Peran & Akses', icon: 'pi pi-shield', to: '/admin/peran', group: 'Lainnya', superAdmin: true },
+  { label: 'Pengaturan Bank', icon: 'pi pi-credit-card', to: '/admin/bank', group: 'Lainnya' },
   { label: 'Pengaturan', icon: 'pi pi-cog', to: '/admin/pengaturan', group: 'Lainnya' },
 ]
 

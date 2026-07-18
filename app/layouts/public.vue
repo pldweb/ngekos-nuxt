@@ -3,7 +3,6 @@ const auth = useAuthStore()
 
 const nav = [
   { label: 'Beranda', to: '/#beranda' },
-  { label: 'Cari Kos', to: '/cari-kos' },
   { label: 'Galeri', to: '/#galeri' },
   { label: 'Testimoni', to: '/#testimoni' },
   { label: 'Tentang Kami', to: '/#tentang' },
@@ -48,10 +47,10 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
         </nav>
 
         <div class="site__actions">
-          <NuxtLink v-if="auth.isAuthenticated" :to="auth.isAdmin ? '/admin' : '/home'">
+          <NuxtLink v-if="auth.isAuthenticated" :to="auth.isAdmin ? '/admin' : '/home'" class="site__auth">
             <Button :label="auth.isAdmin ? 'Dashboard' : 'Beranda'" rounded />
           </NuxtLink>
-          <NuxtLink v-else to="/login">
+          <NuxtLink v-else to="/login" class="site__auth">
             <Button label="Login / Daftar" icon="pi pi-user" rounded />
           </NuxtLink>
           <button
@@ -75,6 +74,19 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
         >
           {{ n.label }}
         </NuxtLink>
+        <NuxtLink
+          v-if="auth.isAuthenticated"
+          :to="auth.isAdmin ? '/admin' : '/home'"
+          class="site__mcta"
+          @click="menuOpen = false"
+        >
+          <i class="pi pi-th-large" />
+          {{ auth.isAdmin ? 'Dashboard' : 'Beranda' }}
+        </NuxtLink>
+        <NuxtLink v-else to="/login" class="site__mcta" @click="menuOpen = false">
+          <i class="pi pi-user" />
+          Login / Daftar
+        </NuxtLink>
       </nav>
     </header>
 
@@ -95,7 +107,6 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
         <div class="site__footer-col">
           <h4>Navigasi</h4>
           <NuxtLink to="/#beranda">Beranda</NuxtLink>
-          <NuxtLink to="/cari-kos">Cari Kos</NuxtLink>
           <NuxtLink to="/#galeri">Galeri</NuxtLink>
           <NuxtLink to="/#testimoni">Testimoni</NuxtLink>
           <NuxtLink to="/#tentang">Tentang Kami</NuxtLink>
@@ -162,10 +173,15 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 /* Saat di-scroll (atau menu mobile terbuka): latar putih + bayangan halus. */
 .site__bar--filled {
   background: rgba(255, 255, 255, 0.92);
+  color: var(--brand-strong);
   backdrop-filter: saturate(180%) blur(10px);
   box-shadow: 0 6px 26px -18px rgba(70, 48, 31, 0.65);
   border-bottom: 1px solid var(--line);
 }
+.site__bar--filled .site__link { color: var(--brand-soft); }
+.site__bar--filled .site__link:hover,
+.site__bar--filled .site__link.router-link-active { color: var(--brand-strong); }
+.site__bar--filled .site__burger { background: var(--sand-soft); color: var(--brand-strong); }
 .site__inner {
   max-width: 1200px;
   margin: 0 auto;
@@ -176,6 +192,7 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   gap: 20px;
 }
 .site__brand { display: flex; align-items: center; }
+.site__brand :deep(.site-logo) { transition: filter 0.2s ease; }
 .site__nav {
   display: flex;
   align-items: center;
@@ -190,7 +207,8 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 }
 .site__link:hover,
 .site__link.router-link-active { color: #fff; }
-.site__actions { display: flex; align-items: center; gap: 10px; }
+.site__actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.site__auth { display: inline-flex; }
 .site__burger {
   display: none;
   width: 40px;
@@ -214,6 +232,19 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   font-size: 15px;
   font-weight: 500;
   padding: 10px 4px;
+}
+.site__mcta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 /* ---------- Main ---------- */
@@ -275,9 +306,16 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
+  .site__inner { height: 64px; padding: 0 18px; }
   .site__nav { display: none; }
+  .site__auth { display: none; }
   .site__burger { display: grid; place-items: center; }
-  .site__mobile { display: flex; }
+  .site__mobile { display: flex; background: rgba(255, 255, 255, 0.96); box-shadow: 0 18px 34px -28px rgba(70, 48, 31, 0.65); }
+  .site__mlink { color: var(--brand-soft); }
+  .site__mlink.router-link-active { color: var(--brand-strong); }
+  .site__bar--float:not(.site__bar--filled) .site__brand :deep(.site-logo) { filter: brightness(0) invert(1); }
+  .site__bar--float:not(.site__bar--filled) .site__burger { background: rgba(255, 255, 255, 0.14); color: #fff; }
+  .site__bar--float:not(.site__bar--filled) .site__mobile { background: rgba(255, 255, 255, 0.96); }
   .site__footer-inner { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 560px) {

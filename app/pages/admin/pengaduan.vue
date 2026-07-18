@@ -10,6 +10,8 @@ type Complaint = {
 }
 
 const api = useApi()
+const toast = useToast()
+const { confirmDialog, confirming, confirmAction, askConfirm, runConfirmedAction, cancelConfirmedAction } = useActionConfirm()
 
 const complaints = ref<Complaint[]>([])
 const loading = ref(true)
@@ -52,6 +54,15 @@ async function load() {
   }
 }
 
+function confirmSubmit() {
+  askConfirm({
+    title: 'Kirim pengaduan?',
+    message: 'Pengaduan akan dikirim dan masuk ke riwayat.',
+    confirmLabel: 'Kirim',
+    run: submit,
+  })
+}
+
 async function submit() {
   submitError.value = null
   if (!form.kategori || !form.deskripsi.trim()) {
@@ -68,8 +79,10 @@ async function submit() {
     form.kategori = null
     form.deskripsi = ''
     await load()
+    toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pengaduan dikirim.', life: 3000 })
   } catch (e: any) {
     submitError.value = e?.data?.message ?? 'Gagal mengirim pengaduan.'
+    toast.add({ severity: 'error', summary: 'Gagal', detail: submitError.value, life: 4000 })
   } finally {
     submitting.value = false
   }
@@ -139,9 +152,16 @@ onMounted(load)
       </div>
       <template #footer>
         <Button label="Batal" text @click="dialog = false" />
-        <Button label="Kirim" icon="pi pi-send" :loading="submitting" @click="submit" />
+        <Button label="Kirim" icon="pi pi-send" :loading="submitting" @click="confirmSubmit" />
       </template>
     </Dialog>
+    <ActionConfirmDialog
+      :visible="confirmDialog"
+      :action="confirmAction"
+      :loading="confirming"
+      @cancel="cancelConfirmedAction"
+      @confirm="runConfirmedAction"
+    />
   </div>
 </template>
 

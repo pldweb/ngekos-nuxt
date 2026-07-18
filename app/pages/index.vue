@@ -8,16 +8,26 @@ const { list } = usePublicKos()
 const api = useApi()
 const kosList = ref<PublicKos[]>([])
 const loading = ref(true)
-const search = ref('')
-const tanggal = ref<Date | null>(null)
-const today = new Date()
-
 const TAHUN_BERDIRI = 2010
+type Testimoni = { nama: string; kota: string; teks: string; star: number }
+type KonsultasiWa = { nomor: string | null; template: string }
+
 const statsData = ref({ total_kos: 0, total_kamar: 0, total_pengguna: 0 })
+const testimoni = ref<Testimoni[]>([])
+const konsultasiWa = ref<KonsultasiWa | null>(null)
 
 onMounted(async () => {
   try {
     kosList.value = (await list({ limit: 10 })).data
+    const kosPertama = kosList.value[0]
+    if (kosPertama) {
+      try {
+        const res = await api<{ data: KonsultasiWa }>(`/public/kos/${kosPertama.id}/konsultasi`)
+        konsultasiWa.value = res.data
+      } catch {
+        /* fallback ke informasi kantor */
+      }
+    }
   } catch {
     /* biarkan kosong */
   } finally {
@@ -30,17 +40,17 @@ onMounted(async () => {
   } catch {
     /* biarkan nilai default 0 */
   }
+
+  try {
+    const res = await api<{ data: Testimoni[] }>('/public/testimoni')
+    testimoni.value = res.data
+  } catch {
+    /* pakai testimoni bawaan */
+  }
 })
 
 function ringkas(n: number): string {
   return n >= 1000 ? `${Math.floor(n / 1000)}.${String(n % 1000).padStart(3, '0')}` : String(n)
-}
-
-function goSearch() {
-  const query: Record<string, string> = {}
-  if (search.value) query.q = search.value
-  if (tanggal.value) query.masuk = tanggal.value.toISOString().slice(0, 10)
-  navigateTo({ path: '/cari-kos', query })
 }
 
 const responsiveOptions = [
@@ -77,11 +87,27 @@ const stats = computed(() => [
   { icon: 'pi pi-calendar', value: String(TAHUN_BERDIRI), label: 'Berdiri Sejak' },
 ])
 
-const testimoni = [
+const sewaWaLink = computed(() => {
+  const kos = kosList.value[0]
+  const nomor = konsultasiWa.value?.nomor
+    || kos?.informasi_kantor?.whatsapp
+    || kos?.informasi_kantor?.telepon
+  if (!nomor) return null
+
+  const digits = nomor.replace(/\D/g, '').replace(/^0/, '62')
+  const template = konsultasiWa.value?.template
+    || 'Halo Admin Ngekoskuy, saya mau sewa kos di {kos}. Apakah masih tersedia?'
+  const teks = template.replaceAll('{kos}', kos?.nama ?? 'Ngekoskuy')
+
+  return `https://wa.me/${digits}?text=${encodeURIComponent(teks)}`
+})
+
+const defaultTestimoni: Testimoni[] = [
   { nama: 'Rani Putri', kota: 'Jakarta', teks: 'Cari kos jadi gampang banget. Fasilitasnya sesuai foto dan pemiliknya ramah!', star: 5 },
   { nama: 'Dimas Ardi', kota: 'Depok', teks: 'Prosesnya cepat, langsung dapat kos dekat kampus dengan harga pas di kantong.', star: 5 },
   { nama: 'Sinta Maharani', kota: 'Bekasi', teks: 'Semua kos terverifikasi, jadi lebih tenang dan aman. Recommended!', star: 5 },
 ]
+const testimoniTampil = computed(() => testimoni.value.length ? testimoni.value : defaultTestimoni)
 </script>
 
 <template>
@@ -100,30 +126,21 @@ const testimoni = [
             Ribuan pilihan kos dengan fasilitas lengkap,<br />lokasi strategis, dan harga terbaik.
           </p>
 
-          <form class="hero__search" @submit.prevent="goSearch">
-            <span class="hero__search-field">
-              <i class="pi pi-map-marker" />
-              <InputText
-                v-model="search"
-                placeholder="Lokasi, kota, atau area"
-                unstyled
-                class="hero__input"
-              />
-            </span>
-            <span class="hero__search-sep" />
-            <span class="hero__search-field hero__search-date">
-              <i class="pi pi-calendar" />
-              <DatePicker
-                v-model="tanggal"
-                placeholder="Tanggal masuk"
-                date-format="dd M yy"
-                :manual-input="false"
-                :min-date="today"
-                class="hero__date"
-              />
-            </span>
-            <Button type="submit" label="Cari Kos" icon="pi pi-search" rounded />
-          </form>
+          <a
+            class="hero__wa"
+            :class="{ 'hero__wa--disabled': !sewaWaLink }"
+            :href="sewaWaLink ?? undefined"
+            target="_blank"
+            rel="noopener"
+          >
+            <Button
+              label="Mau Sewa Kos"
+              icon="pi pi-whatsapp"
+              iconPos="right"
+              rounded
+              :disabled="!sewaWaLink"
+            />
+          </a>
 
           <div class="hero__trust">
             <div v-for="t in trust" :key="t.sub" class="hero__trust-item">
@@ -181,7 +198,14 @@ const testimoni = [
       </Carousel>
 
       <div class="rec__more">
-        <NuxtLink to="/cari-kos"><Button label="Lihat Semua Kos" rounded /></NuxtLink>
+        <a
+          :href="sewaWaLink ?? undefined"
+          target="_blank"
+          rel="noopener"
+          :class="{ 'hero__wa--disabled': !sewaWaLink }"
+        >
+          <Button label="Mau Sewa Kos" icon="pi pi-whatsapp" rounded :disabled="!sewaWaLink" />
+        </a>
       </div>
     </section>
 
@@ -205,7 +229,7 @@ const testimoni = [
       <h2 class="sect-title">Apa Kata Mereka?</h2>
       <p class="sect-sub">Cerita penghuni yang sudah menemukan kos idamannya.</p>
       <div class="tm__grid">
-        <div v-for="t in testimoni" :key="t.nama" class="tm__card">
+        <div v-for="t in testimoniTampil" :key="t.nama" class="tm__card">
           <div class="tm__stars">
             <i v-for="s in t.star" :key="s" class="pi pi-star-fill" />
           </div>
@@ -227,9 +251,14 @@ const testimoni = [
         <div class="cta__copy">
           <h2>Siap Pindah ke<br />Kos Idamanmu?</h2>
           <p>Temukan kos terbaikmu sekarang juga di Ngekoskuy, hunian nyaman untuk hidup lebih produktif.</p>
-          <NuxtLink to="/cari-kos">
-            <Button label="Cari Kos Sekarang" icon="pi pi-arrow-right" iconPos="right" rounded />
-          </NuxtLink>
+          <a
+            :href="sewaWaLink ?? undefined"
+            target="_blank"
+            rel="noopener"
+            :class="{ 'hero__wa--disabled': !sewaWaLink }"
+          >
+            <Button label="Mau Sewa Kos" icon="pi pi-whatsapp" iconPos="right" rounded :disabled="!sewaWaLink" />
+          </a>
         </div>
         <div class="cta__art">
           <img src="https://picsum.photos/seed/ngekos-room/800/600" alt="Kamar kos" />
@@ -262,19 +291,31 @@ const testimoni = [
 /* HERO */
 .hero {
   position: relative;
-  background-image:
-    linear-gradient(90deg, #f4ece0 0%, rgba(244, 236, 224, 0.72) 46%, rgba(244, 236, 224, 0) 72%),
-    url('/hero-bg.png');
+  min-height: clamp(560px, 82dvh, 720px);
+  overflow: hidden;
+  background-image: url('/hero-bg.png');
   background-size: cover;
   background-position: center right;
   background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #f4ece0 0%, rgba(244, 236, 224, 0.72) 46%, rgba(244, 236, 224, 0) 72%);
+  z-index: 0;
 }
 .hero__grid {
+  position: relative;
+  z-index: 1;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 128px var(--pad) 120px;
+  padding: 108px var(--pad) 112px;
 }
-.hero__copy { max-width: 560px; }
+.hero__copy { max-width: 590px; }
 .hero__badge {
   display: inline-flex;
   align-items: center;
@@ -298,49 +339,15 @@ const testimoni = [
   color: var(--brand-strong);
 }
 .hero__brand { color: var(--sand); }
-.hero__sub { margin: 20px 0 26px; font-size: 16px; color: var(--brand-soft); max-width: 460px; }
-.hero__search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #fff;
-  padding: 8px;
-  border-radius: 16px;
-  box-shadow: 0 18px 40px -24px rgba(70, 48, 31, 0.5);
-  max-width: 640px;
+.hero__sub { margin: 20px 0 26px; font-size: 16px; color: var(--brand-soft); max-width: 460px; line-height: 1.65; }
+.hero__wa {
+  display: inline-flex;
+  text-decoration: none;
 }
-.hero__search-field {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  color: var(--ink-soft);
+.hero__wa--disabled {
+  pointer-events: none;
 }
-.hero__search-sep { width: 1px; align-self: stretch; margin: 6px 0; background: var(--line); }
-.hero__input {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: var(--font);
-  font-size: 15px;
-  color: var(--ink);
-}
-/* DatePicker dibuat menyatu tanpa border di dalam kotak pencarian */
-.hero__date { flex: 1; }
-.hero__date :deep(.p-datepicker) { width: 100%; }
-.hero__date :deep(.p-datepicker-input),
-.hero__date :deep(.p-inputtext) {
-  border: none;
-  outline: none;
-  box-shadow: none;
-  background: transparent;
-  padding: 0;
-  font-family: var(--font);
-  font-size: 15px;
-  color: var(--ink);
-}
+
 .hero__trust {
   display: flex;
   flex-wrap: wrap;
@@ -360,6 +367,7 @@ const testimoni = [
 /* Kartu mengambang "Pengguna Puas" di kanan bawah hero */
 .hero__float {
   position: absolute;
+  z-index: 1;
   right: 40px;
   bottom: 96px;
   display: flex;
@@ -525,9 +533,17 @@ const testimoni = [
 
 /* Responsive */
 @media (max-width: 980px) {
-  .hero { background-position: center right -120px; }
-  .hero__grid { padding: 116px var(--pad) 96px; }
-  .hero__copy { max-width: 100%; }
+  .hero { min-height: auto; background-position: center; }
+  .hero::before { background: rgba(36, 24, 15, 0.72); }
+  .hero__grid { padding: 104px var(--pad) 86px; }
+  .hero__copy { max-width: 680px; }
+  .hero__badge { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.32); color: #fff7ed; backdrop-filter: blur(8px); }
+  .hero__title { color: #fffaf4; text-shadow: 0 3px 22px rgba(0, 0, 0, 0.34); }
+  .hero__brand { color: #f2c879; }
+  .hero__sub { color: rgba(255, 250, 244, 0.86); }
+  .hero__trust-item { color: rgba(255, 250, 244, 0.76); }
+  .hero__trust-item strong { color: #fffaf4; }
+  .hero__trust-ic { border-color: rgba(242, 200, 121, 0.72); color: #f2c879; }
   .hero__float { display: none; }
   .stats { margin-top: -48px; }
   .stats__bar { grid-template-columns: repeat(2, 1fr); gap: 22px 16px; }
@@ -538,8 +554,16 @@ const testimoni = [
   .cta__art { order: -1; }
 }
 @media (max-width: 560px) {
-  .hero__search { flex-direction: column; align-items: stretch; }
-  .hero__search-sep { display: none; }
-  .hero__search-field { padding: 8px 14px; }
+  .lp { --pad: 18px; }
+  .hero { background-position: center top; }
+  .hero::before { background: rgba(36, 24, 15, 0.78); }
+  .hero__grid { padding: 90px var(--pad) 72px; }
+  .hero__title { font-size: clamp(32px, 11vw, 42px); }
+  .hero__sub br { display: none; }
+  .hero__trust { gap: 14px; }
+  .stats { margin-top: 0; padding-top: 18px; }
+  .stats__bar { grid-template-columns: 1fr; border-radius: 18px; }
+  .stats__item { justify-content: flex-start; border-right: none; }
+  .gal__grid { grid-template-columns: 1fr; }
 }
 </style>
