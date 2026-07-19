@@ -45,6 +45,16 @@ const filtered = computed(() =>
   filterAksi.value ? logs.value.filter((l) => l.aksi === filterAksi.value) : logs.value,
 )
 
+/** Pagination sisi klien atas daftar terfilter. */
+const first = ref(0)
+const rows = ref(15)
+const paged = computed(() => filtered.value.slice(first.value, first.value + rows.value))
+
+// Reset ke halaman pertama saat filter berubah.
+watch(filterAksi, () => {
+  first.value = 0
+})
+
 const initials = (n: string | null) =>
   (n ?? '?').split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
 
@@ -143,7 +153,7 @@ onMounted(load)
           </tr>
         </thead>
         <tbody>
-          <tr v-for="l in filtered" :key="l.id">
+          <tr v-for="l in paged" :key="l.id">
             <td>
               <div class="flex items-center gap-3">
                 <span class="log__avatar">{{ initials(l.user_nama) }}</span>
@@ -164,6 +174,16 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
+
+      <Paginator
+        v-model:first="first"
+        :rows="rows"
+        :total-records="filtered.length"
+        :rows-per-page-options="[15, 30, 50]"
+        template="RowsPerPageDropdown CurrentPageReport PrevPageLink NextPageLink"
+        current-page-report-template="{first}–{last} dari {totalRecords}"
+        class="log__pager"
+      />
     </div>
 
     <!-- Dialog detail -->
@@ -232,6 +252,7 @@ onMounted(load)
 .log__show-sm { display: none; }
 .log__ip { font-family: ui-monospace, monospace; font-size: 13px; color: var(--ink); }
 .text-right { text-align: right; }
+.log__pager { border-top: 1px solid var(--line); border-radius: 0; background: var(--surface-2); }
 
 .det { display: flex; flex-direction: column; gap: 16px; }
 .det__head { display: flex; align-items: center; gap: 14px; }
