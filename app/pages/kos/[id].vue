@@ -288,6 +288,10 @@ const statusLabel: Record<string, string> = {
   grid-template-columns: 1.4fr 1fr;
   gap: 32px;
 }
+/* Grid item boleh menyusut: tanpa ini min-width:auto membuat strip thumbnail
+   (overflow-x:auto) melebarkan kolom & meluapkan halaman di mobile. */
+.kd__gallery,
+.kd__info { min-width: 0; }
 .kd__cover {
   position: relative;
   border-radius: 20px;
